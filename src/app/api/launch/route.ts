@@ -16,12 +16,12 @@ export async function POST(req: NextRequest) {
     }
 
     const url = buildMapsUrl(businessQuery, city, country);
-    launchChrome(url);
+    const launched = launchChrome(url);
 
     // Record session so check-import knows what to expect
     scrapeSession.set({ city, country, businessType, businessQuery, startedAt: Date.now() });
 
-    return NextResponse.json({ success: true, url });
+    return NextResponse.json({ success: true, url, launched });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : 'Failed to launch Chrome';
     return NextResponse.json({ error: message }, { status: 500 });

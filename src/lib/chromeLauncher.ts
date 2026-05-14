@@ -22,13 +22,12 @@ export function buildMapsUrl(businessQuery: string, city: string, country: strin
   return `https://www.google.com/maps/search/${q}`;
 }
 
-export function launchChrome(url: string): void {
+export function launchChrome(url: string): boolean {
   const chromePath = findChrome();
   if (!chromePath) {
-    throw new Error(
-      'Chrome not found. Make sure Google Chrome is installed at the default location.'
-    );
+    return false;
   }
   const child = spawn(chromePath, [url], { detached: true, stdio: 'ignore' });
   child.unref();
+  return true;
 }
