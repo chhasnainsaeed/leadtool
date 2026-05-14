@@ -1,36 +1,87 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# LeadTool
 
-## Getting Started
+LeadTool is a Next.js 16 app for finding local business leads, generating outreach emails with AI, and sending emails through SMTP.
 
-First, run the development server:
+## Requirements
+
+- Node.js 20+
+- npm
+- Google Chrome installed (for map-launch flow)
+
+## Local Setup
+
+1. Install dependencies:
+
+```bash
+npm install
+```
+
+2. Create or update `.env.local` with required values:
+
+```env
+AI_PROVIDER=gemini
+GEMINI_API_KEY=...
+ANTHROPIC_API_KEY=...
+SERPAPI_KEY=...
+
+SMTP_HOST=smtp.titan.email
+SMTP_PORT=465
+SMTP_SECURE=true
+SMTP_USER=you@domain.com
+SMTP_PASS=your_password
+SMTP_FROM=you@domain.com
+SENDER_NAME=LeadTool
+```
+
+3. Start development server:
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## SMTP Checks
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+Run a direct SMTP connectivity/auth test:
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```bash
+npm run smtp:check
+```
 
-## Learn More
+Runtime API diagnostic:
 
-To learn more about Next.js, take a look at the following resources:
+- `GET /api/test-smtp`
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+It returns:
+- `ok: true` when SMTP verify succeeds
+- `ok: false` and a descriptive `error` when it fails
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Build
 
-## Deploy on Vercel
+```bash
+npm run build
+```
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## Deploy (Hostinger or any Node host)
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Set the same environment variables from `.env.local` in your hosting dashboard:
+
+- `AI_PROVIDER`
+- `GEMINI_API_KEY` and/or `ANTHROPIC_API_KEY`
+- `SERPAPI_KEY` (if using SerpAPI)
+- `SMTP_HOST`
+- `SMTP_PORT`
+- `SMTP_SECURE`
+- `SMTP_USER`
+- `SMTP_PASS`
+- `SMTP_FROM`
+- `SENDER_NAME`
+
+After setting env vars, restart/redeploy the app.
+
+## Troubleshooting SMTP
+
+- `Invalid login` / `535`: credentials are wrong or mailbox auth policy blocks login.
+- `TLS` / certificate errors: use `587 + SMTP_SECURE=false` or `465 + SMTP_SECURE=true`.
+- `ETIMEDOUT` / `EACCES` / `ECONNREFUSED`: outbound SMTP blocked by local/server/network firewall.
+
+If outbound SMTP is blocked by your hosting provider/network, use an HTTPS email API provider (Resend/SendGrid/Postmark) instead of SMTP.

@@ -8,8 +8,12 @@ interface Props {
   onGenerateEmail: (lead: Lead) => void;
   onViewEmail: (lead: Lead) => void;
   onDelete: (id: string) => void;
+  onWhatsApp: (lead: Lead) => void;
+  onProcessLead: (lead: Lead) => void;
   loadingAudit: string | null;
   loadingEmail: string | null;
+  loadingWhatsApp: string | null;
+  loadingProcess: string | null;
 }
 
 const STATUS_COLORS: Record<string, string> = {
@@ -109,7 +113,7 @@ function IssuesBadge({ issues, count }: { issues: string; count: number }) {
 }
 
 export default function LeadsTable({
-  leads, onAudit, onGenerateEmail, onViewEmail, onDelete, loadingAudit, loadingEmail
+  leads, onAudit, onGenerateEmail, onViewEmail, onDelete, onWhatsApp, onProcessLead, loadingAudit, loadingEmail, loadingWhatsApp, loadingProcess
 }: Props) {
   if (leads.length === 0) {
     return (
@@ -189,6 +193,14 @@ export default function LeadsTable({
                 {/* Actions */}
                 <td className="px-4 py-3">
                   <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <button
+                      onClick={() => onProcessLead(lead)}
+                      disabled={loadingProcess === lead.id}
+                      title="Process lead (audit + generate + optional send)"
+                      className="px-2.5 py-1 rounded-lg text-xs font-semibold bg-blue-600 text-white hover:bg-blue-700 disabled:bg-slate-300 transition-colors"
+                    >
+                      {loadingProcess === lead.id ? 'Processing...' : 'Process'}
+                    </button>
                     {/* Audit website (only if real website) */}
                     {lead.hasRealWebsite && (
                       <button
@@ -244,6 +256,27 @@ export default function LeadsTable({
                         </svg>
                       )}
                     </button>
+
+                    {/* WhatsApp check/link */}
+                    {lead.phone && (
+                      <button
+                        onClick={() => onWhatsApp(lead)}
+                        disabled={loadingWhatsApp === lead.id}
+                        title="Generate WhatsApp message and open wa.me"
+                        className="p-1.5 rounded-lg text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 disabled:opacity-40 transition-colors"
+                      >
+                        {loadingWhatsApp === lead.id ? (
+                          <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+                          </svg>
+                        ) : (
+                          <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a2 2 0 011.894 1.342l1.14 3.42a2 2 0 01-.45 2.11l-1.4 1.4a16 16 0 006.364 6.364l1.4-1.4a2 2 0 012.11-.45l3.42 1.14A2 2 0 0121 18.72V22a2 2 0 01-2 2h-1C8.06 24 0 15.94 0 6V5a2 2 0 012-2h1z"/>
+                          </svg>
+                        )}
+                      </button>
+                    )}
 
                     {/* View/send email */}
                     {lead.emailContent && (

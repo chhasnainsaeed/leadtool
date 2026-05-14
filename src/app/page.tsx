@@ -18,6 +18,8 @@ export default function Home() {
   const [scrapeStatus, setScrapeStatus] = useState<'idle' | 'waiting' | 'done'>('idle');
   const [loadingAudit, setLoadingAudit] = useState<string | null>(null);
   const [loadingEmail, setLoadingEmail] = useState<string | null>(null);
+  const [loadingWhatsApp, setLoadingWhatsApp] = useState<string | null>(null);
+  const [loadingProcess, setLoadingProcess] = useState<string | null>(null);
   const [emailModalLead, setEmailModalLead] = useState<Lead | null>(null);
   const [toasts, setToasts] = useState<Toast[]>([]);
   const [filter, setFilter] = useState<'all' | 'website' | 'no-website' | 'sent' | 'ready'>('all');
@@ -188,10 +190,54 @@ export default function Home() {
     setLeads(prev => prev.filter(l => l.id !== id));
   };
 
+  const handleWhatsApp = async (lead: Lead) => {
+    setLoadingWhatsApp(lead.id);
+    try {
+      const res = await fetch('/api/whatsapp-link', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ leadId: lead.id }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to generate WhatsApp link');
+      window.open(data.waLink, '_blank', 'noopener,noreferrer');
+      addToast('Opened WhatsApp link with custom message', 'success');
+    } catch (err: unknown) {
+      addToast(err instanceof Error ? err.message : 'WhatsApp link failed', 'error');
+    } finally {
+      setLoadingWhatsApp(null);
+    }
+  };
+
   const handleClearAll = async () => {
     if (!confirm('Delete all leads? This cannot be undone.')) return;
     await fetch('/api/leads?all=true', { method: 'DELETE' });
     setLeads([]);
+  };
+
+  const handleProcessLead = async (lead: Lead) => {
+    setLoadingProcess(lead.id);
+    try {
+      const res = await fetch('/api/automate-lead', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          leadId: lead.id,
+          recipientEmail: lead.email || undefined,
+          sendWhatsapp: false,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Process failed');
+
+      const latest = await fetch('/api/leads').then(r => r.json());
+      setLeads(latest.leads || []);
+      addToast(`Processed ${lead.businessName}`, 'success');
+    } catch (err: unknown) {
+      addToast(err instanceof Error ? err.message : 'Process failed', 'error');
+    } finally {
+      setLoadingProcess(null);
+    }
   };
 
   const cancelScrape = () => {
@@ -302,8 +348,12 @@ export default function Home() {
               onGenerateEmail={handleGenerateEmail}
               onViewEmail={setEmailModalLead}
               onDelete={handleDelete}
+              onWhatsApp={handleWhatsApp}
+              onProcessLead={handleProcessLead}
               loadingAudit={loadingAudit}
               loadingEmail={loadingEmail}
+              loadingWhatsApp={loadingWhatsApp}
+              loadingProcess={loadingProcess}
             />
 
             {leads.length === 0 && !launching && (

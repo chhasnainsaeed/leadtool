@@ -42,6 +42,7 @@ export interface Lead {
   category: string;
   address: string;
   phone: string;
+  email?: string;
   website: string;
   hasWebsite: boolean;
   hasRealWebsite: boolean;        // true only if website is NOT social media

@@ -43,7 +43,7 @@ function parseCSVLine(line: string): string[] {
 // Exact GBP scraper column headers (from popup.js line 402)
 const GBP_HEADERS = [
   'Business Name', 'Category', 'Rating', 'Reviews', 'Phone', 'Address',
-  'Website', 'Price Range', 'Hours', 'Photos', 'Services', 'Booking Link',
+  'Website', 'Email', 'Price Range', 'Hours', 'Photos', 'Services', 'Booking Link',
   'Social Media', 'Plus Code', 'Claimed', 'Description', 'GBP URL',
   'Search City', 'Search Country', 'Search Category',
   'Audit Score', 'Issues Count', 'Issues Found', 'Pitch Points',
@@ -56,6 +56,13 @@ function buildIndexMap(headers: string[]): Record<string, number> {
     const idx = headers.findIndex(col => col.replace(/^"|"$/g, '').trim() === h);
     if (idx >= 0) map[h] = idx;
   });
+  if (map.Email === undefined) {
+    const emailIdx = headers.findIndex(col => {
+      const normalized = col.replace(/^"|"$/g, '').trim().toLowerCase();
+      return normalized === 'email' || normalized === 'e-mail' || normalized === 'contact email';
+    });
+    if (emailIdx >= 0) map.Email = emailIdx;
+  }
   return map;
 }
 
@@ -87,6 +94,7 @@ export function parseGBPCsv(
     if (!name) continue;
 
     const website = get(cols, 'Website');
+    const email = get(cols, 'Email');
     const socialMedia = get(cols, 'Social Media');
     const hasWeb = isRealWebsite(website);
     // If no real website but has social — use social as fallback display
@@ -107,6 +115,7 @@ export function parseGBPCsv(
       category: get(cols, 'Category'),
       address: get(cols, 'Address'),
       phone: get(cols, 'Phone'),
+      email,
       website: displayWebsite,
       hasWebsite: !!displayWebsite,
       hasRealWebsite: hasWeb,

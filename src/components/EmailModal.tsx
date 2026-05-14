@@ -10,7 +10,7 @@ interface Props {
 }
 
 export default function EmailModal({ lead, onClose, onSent }: Props) {
-  const [recipientEmail, setRecipientEmail] = useState('');
+  const [recipientEmail, setRecipientEmail] = useState(lead.email || '');
   const [subject, setSubject] = useState(lead.emailContent?.subject || '');
   const [body, setBody] = useState(lead.emailContent?.body || '');
   const [sending, setSending] = useState(false);
