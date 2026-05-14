@@ -214,59 +214,93 @@ export default function LeadDetailPanel({
 
             {/* Website Audit */}
             {lead.auditData ? (
-              <Section title="Website Audit (PageSpeed)">
-                <div className="grid grid-cols-4 gap-3 mb-3">
-                  <ScoreGauge label="Performance" score={lead.auditData.performance} />
-                  <ScoreGauge label="Accessibility" score={lead.auditData.accessibility} />
-                  <ScoreGauge label="SEO" score={lead.auditData.seo} />
-                  <ScoreGauge label="Best Practices" score={lead.auditData.bestPractices} />
-                </div>
-                <div className="grid grid-cols-3 gap-2 text-xs bg-slate-50 rounded-lg p-2 mb-2">
-                  <div><span className="text-slate-500">FCP </span><span className="font-semibold">{lead.auditData.fcp}</span></div>
-                  <div><span className="text-slate-500">LCP </span><span className="font-semibold">{lead.auditData.lcp}</span></div>
-                  <div><span className="text-slate-500">CLS </span><span className="font-semibold">{lead.auditData.cls}</span></div>
-                </div>
-                <div className="grid grid-cols-2 gap-1.5 text-xs mb-2">
-                  {[
-                    { label: 'SSL', val: lead.auditData.hasSSL },
-                    { label: 'Title tag', val: lead.auditData.hasTitle },
-                    { label: 'Meta description', val: lead.auditData.hasMetaDescription },
-                    { label: 'H1 heading', val: lead.auditData.hasH1 },
-                    { label: 'Mobile viewport', val: lead.auditData.hasMobileViewport },
-                  ].map(({ label, val }) => (
-                    <div key={label} className={`flex items-center gap-1.5 px-2 py-1 rounded ${val ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'}`}>
-                      {val ? '✓' : '✗'} {label}
+              <>
+                {/* Screenshot + Visual Audit */}
+                {lead.auditData.screenshotDataUrl && (
+                  <Section title="Visual Audit (Gemini)">
+                    <div className="rounded-lg overflow-hidden border border-slate-200 mb-2">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={lead.auditData.screenshotDataUrl}
+                        alt="Website screenshot"
+                        className="w-full object-cover"
+                        style={{ maxHeight: 200, objectPosition: 'top' }}
+                      />
                     </div>
-                  ))}
-                </div>
-                {lead.auditData.issues.length > 0 && (
-                  <div className="mb-2">
-                    <div className="text-xs font-semibold text-slate-500 mb-1.5">Issues</div>
-                    <ul className="space-y-1">
-                      {lead.auditData.issues.map((issue, i) => (
-                        <li key={i} className="text-xs text-rose-700 bg-rose-50 px-2 py-1 rounded">✗ {issue}</li>
-                      ))}
-                    </ul>
-                  </div>
+                    {lead.auditData.visualIssues.length > 0 ? (
+                      <ul className="space-y-1">
+                        {lead.auditData.visualIssues.map((issue, i) => (
+                          <li key={i} className="text-xs text-purple-700 bg-purple-50 px-2 py-1.5 rounded flex items-start gap-1.5">
+                            <span className="shrink-0 mt-0.5">👁</span> {issue}
+                          </li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <p className="text-xs text-green-600 bg-green-50 px-2 py-1.5 rounded">✓ No visual design issues detected</p>
+                    )}
+                    {lead.auditData.visualSkipped && (
+                      <p className="text-xs text-slate-400 italic">Screenshot unavailable — visual audit skipped</p>
+                    )}
+                  </Section>
                 )}
-                {lead.auditData.opportunities.length > 0 && (
-                  <div>
-                    <div className="text-xs font-semibold text-slate-500 mb-1.5">Opportunities</div>
-                    <ul className="space-y-1">
-                      {lead.auditData.opportunities.map((op, i) => (
-                        <li key={i} className="text-xs text-amber-700 bg-amber-50 px-2 py-1 rounded">↑ {op}</li>
-                      ))}
-                    </ul>
+
+                <Section title="Website Audit (PageSpeed)">
+                  <div className="grid grid-cols-4 gap-3 mb-3">
+                    <ScoreGauge label="Performance" score={lead.auditData.performance} />
+                    <ScoreGauge label="Accessibility" score={lead.auditData.accessibility} />
+                    <ScoreGauge label="SEO" score={lead.auditData.seo} />
+                    <ScoreGauge label="Best Practices" score={lead.auditData.bestPractices} />
                   </div>
-                )}
-                {lead.auditData.titleText && (
-                  <div className="mt-2 text-xs text-slate-500 bg-slate-50 rounded p-2">
-                    <span className="font-medium">Title: </span>{lead.auditData.titleText}
+                  <div className="grid grid-cols-3 gap-2 text-xs bg-slate-50 rounded-lg p-2 mb-2">
+                    <div><span className="text-slate-500">FCP </span><span className="font-semibold">{lead.auditData.fcp}</span></div>
+                    <div><span className="text-slate-500">LCP </span><span className="font-semibold">{lead.auditData.lcp}</span></div>
+                    <div><span className="text-slate-500">CLS </span><span className="font-semibold">{lead.auditData.cls}</span></div>
                   </div>
-                )}
-              </Section>
+                  <div className="grid grid-cols-2 gap-1.5 text-xs mb-2">
+                    {[
+                      { label: 'SSL', val: lead.auditData.hasSSL },
+                      { label: 'Title tag', val: lead.auditData.hasTitle },
+                      { label: 'Meta description', val: lead.auditData.hasMetaDescription },
+                      { label: 'H1 heading', val: lead.auditData.hasH1 },
+                      { label: 'Mobile viewport', val: lead.auditData.hasMobileViewport },
+                      { label: 'Schema markup', val: lead.auditData.hasSchema },
+                      { label: 'Open Graph tags', val: lead.auditData.hasOgTags },
+                      { label: 'Analytics', val: lead.auditData.hasAnalytics },
+                    ].map(({ label, val }) => (
+                      <div key={label} className={`flex items-center gap-1.5 px-2 py-1 rounded ${val ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'}`}>
+                        {val ? '✓' : '✗'} {label}
+                      </div>
+                    ))}
+                  </div>
+                  {lead.auditData.issues.length > 0 && (
+                    <div className="mb-2">
+                      <div className="text-xs font-semibold text-slate-500 mb-1.5">Issues</div>
+                      <ul className="space-y-1">
+                        {lead.auditData.issues.map((issue, i) => (
+                          <li key={i} className="text-xs text-rose-700 bg-rose-50 px-2 py-1 rounded">✗ {issue}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                  {lead.auditData.opportunities.length > 0 && (
+                    <div>
+                      <div className="text-xs font-semibold text-slate-500 mb-1.5">Opportunities</div>
+                      <ul className="space-y-1">
+                        {lead.auditData.opportunities.map((op, i) => (
+                          <li key={i} className="text-xs text-amber-700 bg-amber-50 px-2 py-1 rounded">↑ {op}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                  {lead.auditData.titleText && (
+                    <div className="mt-2 text-xs text-slate-500 bg-slate-50 rounded p-2">
+                      <span className="font-medium">Title: </span>{lead.auditData.titleText}
+                    </div>
+                  )}
+                </Section>
+              </>
             ) : lead.hasRealWebsite ? (
-              <Section title="Website Audit (PageSpeed)">
+              <Section title="Website Audit">
                 <p className="text-xs text-slate-400 italic">Not audited yet — click Audit Website below.</p>
               </Section>
             ) : null}

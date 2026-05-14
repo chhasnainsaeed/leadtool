@@ -32,8 +32,11 @@ export interface AuditData {
   imagesWithoutAlt: number;
   issues: string[];
   opportunities: string[];
+  visualIssues: string[];
+  screenshotDataUrl?: string;
   crawlBlocked: boolean;
   psiSkipped: boolean;
+  visualSkipped: boolean;
 }
 
 export interface EmailContent {

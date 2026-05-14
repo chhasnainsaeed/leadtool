@@ -129,6 +129,8 @@ Return JSON: {"subject": "...", "body": "..."}`;
     if (websiteAudit.psiSkipped) techDetails.push('page speed could not be measured (possible server issues)');
   }
 
+  const visualFindings = websiteAudit?.visualIssues ?? [];
+
   return `Write a cold email to the owner of "${lead.businessName}", a ${lead.category} in ${lead.city}${lead.country ? ', ' + lead.country : ''}.
 
 Website: ${lead.website}
@@ -136,6 +138,7 @@ Google rating: ${stars}
 GBP audit score: ${lead.gbpAuditScore}/100
 ${allIssues.length > 0 ? `Critical issues found:\n${allIssues.map(i => '- ' + i).join('\n')}` : 'No critical issues detected by our audit.'}
 ${allOpportunities.length > 0 ? `\nImprovement opportunities:\n${allOpportunities.map(o => '- ' + o).join('\n')}` : ''}
+${visualFindings.length > 0 ? `\nVisual design problems (from screenshot analysis):\n${visualFindings.map(v => '- ' + v).join('\n')}` : ''}
 ${techDetails.length > 0 ? `\nAdditional technical findings: ${techDetails.join(', ')}` : ''}
 ${perfScore !== undefined && perfScore > 0 ? `\nWebsite mobile performance: ${perfScore}/100` : ''}
 ${pitchPoints.length > 0 ? `\nKey pitch angles:\n${pitchPoints.map(p => '- ' + p).join('\n')}` : ''}
