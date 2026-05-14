@@ -115,20 +115,33 @@ Return JSON: {"subject": "...", "body": "..."}`;
     ? lead.gbpPitchPoints.split(' | ').map(s => s.trim()).filter(Boolean)
     : [];
 
-  const allIssues = [...gbpIssueList, ...(websiteAudit?.issues || [])].slice(0, 4);
+  const allIssues = [...gbpIssueList, ...(websiteAudit?.issues || [])].slice(0, 5);
+  const allOpportunities = (websiteAudit?.opportunities || []).slice(0, 3);
   const perfScore = websiteAudit?.performance;
+
+  const techDetails: string[] = [];
+  if (websiteAudit) {
+    if (!websiteAudit.hasAnalytics) techDetails.push('no analytics tracking');
+    if (!websiteAudit.hasSchema) techDetails.push('no structured data for Google');
+    if (!websiteAudit.hasOgTags) techDetails.push('no social sharing preview (Open Graph)');
+    if (websiteAudit.imagesWithoutAlt > 0) techDetails.push(`${websiteAudit.imagesWithoutAlt} images missing alt text`);
+    if (websiteAudit.crawlBlocked) techDetails.push('site blocks search engine crawlers');
+    if (websiteAudit.psiSkipped) techDetails.push('page speed could not be measured (possible server issues)');
+  }
 
   return `Write a cold email to the owner of "${lead.businessName}", a ${lead.category} in ${lead.city}${lead.country ? ', ' + lead.country : ''}.
 
 Website: ${lead.website}
 Google rating: ${stars}
 GBP audit score: ${lead.gbpAuditScore}/100
-${allIssues.length > 0 ? `Issues found:\n${allIssues.map(i => '- ' + i).join('\n')}` : ''}
-${perfScore !== undefined ? `Website mobile performance: ${perfScore}/100` : ''}
+${allIssues.length > 0 ? `Critical issues found:\n${allIssues.map(i => '- ' + i).join('\n')}` : 'No critical issues detected by our audit.'}
+${allOpportunities.length > 0 ? `\nImprovement opportunities:\n${allOpportunities.map(o => '- ' + o).join('\n')}` : ''}
+${techDetails.length > 0 ? `\nAdditional technical findings: ${techDetails.join(', ')}` : ''}
+${perfScore !== undefined && perfScore > 0 ? `\nWebsite mobile performance: ${perfScore}/100` : ''}
 ${pitchPoints.length > 0 ? `\nKey pitch angles:\n${pitchPoints.map(p => '- ' + p).join('\n')}` : ''}
 
 I'm a web designer. Write an email that:
-1. Mentions ONE specific issue I noticed (pick the most impactful)
+1. Mentions ONE specific issue I noticed (pick the most impactful and specific one)
 2. Briefly explains the business impact (losing customers to competitors)
 3. Offers a free 15-minute website review call
 4. Feels personal — like I specifically looked at their business

@@ -24,9 +24,16 @@ export interface AuditData {
   hasMetaDescription: boolean;
   metaDescription: string;
   hasH1: boolean;
+  h1Text: string;
   hasMobileViewport: boolean;
+  hasSchema: boolean;
+  hasOgTags: boolean;
+  hasAnalytics: boolean;
+  imagesWithoutAlt: number;
   issues: string[];
   opportunities: string[];
+  crawlBlocked: boolean;
+  psiSkipped: boolean;
 }
 
 export interface EmailContent {
