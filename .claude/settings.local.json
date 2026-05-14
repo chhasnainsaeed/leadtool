@@ -1,7 +1,11 @@
 {
   "permissions": {
     "allow": [
-      "Bash(npx create-next-app@latest . --typescript --tailwind --eslint --app --src-dir --import-alias \"@/*\" --no-git)"
+      "Bash(npx create-next-app@latest . --typescript --tailwind --eslint --app --src-dir --import-alias \"@/*\" --no-git)",
+      "Bash(Get-Content \"C:\\\\Users\\\\dijis\\\\Downloads\\\\gbp_leads_2026-05-13T03-58.csv\")",
+      "Bash(Select-Object -First 5)",
+      "Read(//c/Users/dijis/Downloads/**)",
+      "Read(//c/Users/dijis/OneDrive/Desktop/gbp-scraper/**)"
     ]
   }
 }

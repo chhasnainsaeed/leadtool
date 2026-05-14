@@ -1,0 +1,138 @@
+import Anthropic from '@anthropic-ai/sdk';
+import { GoogleGenerativeAI } from '@google/generative-ai';
+import { Lead, AuditData, EmailContent } from '@/types';
+
+const SENDER_NAME = process.env.SENDER_NAME || 'Your Name';
+const SENDER_EMAIL = process.env.SMTP_USER || '';
+const AI_PROVIDER = (process.env.AI_PROVIDER || 'gemini').toLowerCase();
+
+const SYSTEM_PROMPT = `You are a professional web designer writing concise, human cold emails to local business owners.
+Goal: get a reply — not close a sale. Under 200 words total.
+Write plain text only (no markdown, no bullet lists). Sound like a real person, not a template.
+Never mention pricing or packages. One clear call to action at the end.
+Return JSON with exactly two keys: "subject" and "body".`;
+
+// ── Gemini ──────────────────────────────────────────────────────────────────
+async function generateWithGemini(prompt: string): Promise<string> {
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) throw new Error('GEMINI_API_KEY is not set in .env.local');
+
+  const genAI = new GoogleGenerativeAI(apiKey);
+  const model = genAI.getGenerativeModel({
+    model: 'gemini-2.5-pro',
+    systemInstruction: SYSTEM_PROMPT,
+    generationConfig: {
+      maxOutputTokens: 2048,
+      temperature: 0.8,
+    },
+  });
+
+  const result = await model.generateContent(prompt);
+  const text = result.response.text();
+  // Strip markdown code fences if Gemini wraps the JSON
+  return text.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '').trim();
+}
+
+// ── Claude ───────────────────────────────────────────────────────────────────
+async function generateWithClaude(prompt: string): Promise<string> {
+  const apiKey = process.env.ANTHROPIC_API_KEY;
+  if (!apiKey) throw new Error('ANTHROPIC_API_KEY is not set in .env.local');
+
+  const client = new Anthropic({ apiKey });
+  const message = await client.messages.create({
+    model: 'claude-sonnet-4-6',
+    max_tokens: 1024,
+    system: SYSTEM_PROMPT,
+    messages: [{ role: 'user', content: prompt }],
+  });
+  return message.content[0].type === 'text' ? message.content[0].text : '';
+}
+
+// ── Parser ───────────────────────────────────────────────────────────────────
+function parseEmailJSON(text: string, fallbackSubject: string): EmailContent {
+  try {
+    const match = text.match(/\{[\s\S]*\}/);
+    const parsed = JSON.parse(match ? match[0] : text) as EmailContent;
+    return {
+      subject: parsed.subject || fallbackSubject,
+      body: (parsed.body || text)
+        .replace(/\[Your Name\]/gi, SENDER_NAME)
+        .replace(/\[Sender\]/gi, SENDER_NAME)
+        .replace(/\[Your Email\]/gi, SENDER_EMAIL),
+    };
+  } catch {
+    return { subject: fallbackSubject, body: text };
+  }
+}
+
+// ── Main export ───────────────────────────────────────────────────────────────
+export async function generateEmail(lead: Lead, websiteAudit?: AuditData): Promise<EmailContent> {
+  const prompt = buildPrompt(lead, websiteAudit);
+
+  let text: string;
+  if (AI_PROVIDER === 'claude') {
+    text = await generateWithClaude(prompt);
+  } else {
+    // Default: Gemini (free tier: 1,500 requests/day)
+    text = await generateWithGemini(prompt);
+  }
+
+  return parseEmailJSON(text, `Quick question about ${lead.businessName}`);
+}
+
+export function getActiveProvider(): string {
+  return AI_PROVIDER === 'claude' ? 'Claude (Anthropic)' : 'Gemini 2.0 Flash (Google)';
+}
+
+// ── Prompt builder ────────────────────────────────────────────────────────────
+function buildPrompt(lead: Lead, websiteAudit?: AuditData): string {
+  const stars = lead.rating > 0 ? `${lead.rating} stars (${lead.reviews} reviews)` : 'no rating yet';
+
+  if (!lead.hasRealWebsite) {
+    const hasSocial = !!lead.socialMedia && lead.socialMedia !== 'N/A';
+    return `Write a cold email to the owner of "${lead.businessName}", a ${lead.category} in ${lead.city}${lead.country ? ', ' + lead.country : ''}.
+
+They have NO real website — only ${hasSocial ? 'a social media page (' + lead.socialMedia.replace(/^https?:\/\//, '').split('/')[0] + ')' : 'a Google Business listing'}.
+Google rating: ${stars}
+${lead.description && lead.description !== 'N/A' ? `Business description: ${lead.description}` : 'No business description on their Google listing.'}
+${lead.gbpPitchPoints && lead.gbpPitchPoints !== 'No major issues found' ? `Pitch angles: ${lead.gbpPitchPoints}` : ''}
+
+I build websites for local ${lead.category}s. Write an email that:
+1. Mentions their ${lead.rating > 0 ? lead.rating + '-star reputation' : 'business'} specifically
+2. Points out that people searching online for ${lead.category}s in ${lead.city} can't find them
+3. Offers to show them a FREE website concept — no commitment
+4. Sounds personal, not like a mass email
+
+Sender: ${SENDER_NAME}
+Return JSON: {"subject": "...", "body": "..."}`;
+  }
+
+  const gbpIssueList = lead.gbpIssues && lead.gbpIssues !== 'N/A'
+    ? lead.gbpIssues.replace(/[❌⚠️✅]/g, '').split(' | ').map(s => s.trim()).filter(Boolean)
+    : [];
+
+  const pitchPoints = lead.gbpPitchPoints && lead.gbpPitchPoints !== 'N/A' && lead.gbpPitchPoints !== 'No major issues found'
+    ? lead.gbpPitchPoints.split(' | ').map(s => s.trim()).filter(Boolean)
+    : [];
+
+  const allIssues = [...gbpIssueList, ...(websiteAudit?.issues || [])].slice(0, 4);
+  const perfScore = websiteAudit?.performance;
+
+  return `Write a cold email to the owner of "${lead.businessName}", a ${lead.category} in ${lead.city}${lead.country ? ', ' + lead.country : ''}.
+
+Website: ${lead.website}
+Google rating: ${stars}
+GBP audit score: ${lead.gbpAuditScore}/100
+${allIssues.length > 0 ? `Issues found:\n${allIssues.map(i => '- ' + i).join('\n')}` : ''}
+${perfScore !== undefined ? `Website mobile performance: ${perfScore}/100` : ''}
+${pitchPoints.length > 0 ? `\nKey pitch angles:\n${pitchPoints.map(p => '- ' + p).join('\n')}` : ''}
+
+I'm a web designer. Write an email that:
+1. Mentions ONE specific issue I noticed (pick the most impactful)
+2. Briefly explains the business impact (losing customers to competitors)
+3. Offers a free 15-minute website review call
+4. Feels personal — like I specifically looked at their business
+
+Sender: ${SENDER_NAME}
+Return JSON: {"subject": "...", "body": "..."}`;
+}
