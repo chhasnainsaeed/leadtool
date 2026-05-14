@@ -50,7 +50,15 @@ export async function auditWebsite(url: string): Promise<AuditData> {
   ]);
 
   const psi = psiData.status === 'fulfilled' ? psiData.value : null;
-  const seo = seoChecks.status === 'fulfilled' ? seoChecks.value : getEmptySEO();
+  const seo = seoChecks.status === 'fulfilled' ? seoChecks.value : getEmptySEO(normalizedUrl);
+  const psiError =
+    psiData.status === 'rejected'
+      ? (psiData.reason instanceof Error ? psiData.reason.message : 'Unknown PageSpeed error')
+      : null;
+  const seoError =
+    seoChecks.status === 'rejected'
+      ? (seoChecks.reason instanceof Error ? seoChecks.reason.message : 'Unknown SEO fetch error')
+      : null;
 
   const audits = psi?.lighthouseResult?.audits || {};
   const cats = psi?.lighthouseResult?.categories || {};
@@ -63,14 +71,22 @@ export async function auditWebsite(url: string): Promise<AuditData> {
   const seoScore = score(cats.seo?.score);
   const bpScore = score(cats['best-practices']?.score);
 
-  if (perfScore < 50) issues.push(`Poor mobile performance score (${perfScore}/100)`);
-  else if (perfScore < 90) opportunities.push(`Performance can be improved (${perfScore}/100)`);
+  if (psi) {
+    if (perfScore < 50) issues.push(`Poor mobile performance score (${perfScore}/100)`);
+    else if (perfScore < 90) opportunities.push(`Performance can be improved (${perfScore}/100)`);
+  } else if (psiError) {
+    issues.push(`PageSpeed unavailable: ${psiError}`);
+  }
 
-  if (!seo.hasSSL) issues.push('No SSL certificate (not HTTPS)');
-  if (!seo.hasTitle) issues.push('Missing page title tag');
-  if (!seo.hasMetaDescription) issues.push('Missing meta description');
-  if (!seo.hasH1) issues.push('Missing H1 heading');
-  if (!seo.hasMobileViewport) issues.push('Missing mobile viewport meta tag');
+  if (seoChecks.status === 'fulfilled') {
+    if (!seo.hasSSL) issues.push('No SSL certificate (not HTTPS)');
+    if (!seo.hasTitle) issues.push('Missing page title tag');
+    if (!seo.hasMetaDescription) issues.push('Missing meta description');
+    if (!seo.hasH1) issues.push('Missing H1 heading');
+    if (!seo.hasMobileViewport) issues.push('Missing mobile viewport meta tag');
+  } else if (seoError) {
+    issues.push(`SEO crawl unavailable: ${seoError}`);
+  }
 
   if (audits['render-blocking-resources']?.score === 0)
     opportunities.push('Eliminate render-blocking resources');
@@ -102,9 +118,11 @@ export async function auditWebsite(url: string): Promise<AuditData> {
 }
 
 async function runPageSpeed(url: string): Promise<PSIResult> {
+  const apiKey = process.env.GEMINI_API_KEY;
   const apiUrl =
     `https://www.googleapis.com/pagespeedonline/v5/runPagespeed` +
     `?url=${encodeURIComponent(url)}&strategy=mobile` +
+    (apiKey ? `&key=${encodeURIComponent(apiKey)}` : '') +
     `&category=performance&category=accessibility&category=seo&category=best-practices`;
 
   const res = await axios.get<PSIResult>(apiUrl, { timeout: 30000 });
@@ -145,9 +163,9 @@ async function runSEOChecks(url: string): Promise<SEOChecks> {
   };
 }
 
-function getEmptySEO(): SEOChecks {
+function getEmptySEO(url: string): SEOChecks {
   return {
-    hasSSL: false,
+    hasSSL: url.startsWith('https://'),
     hasTitle: false,
     titleText: '',
     hasMetaDescription: false,

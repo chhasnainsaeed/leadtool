@@ -76,6 +76,8 @@ export interface Lead {
   createdAt: string;
   // source tracking
   sourceFile?: string;
+  // user notes
+  notes?: string;
 }
 
 export interface SearchParams {
