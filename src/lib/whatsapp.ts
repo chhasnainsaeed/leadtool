@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { parsePhoneNumber, isValidPhoneNumber } from 'libphonenumber-js';
 
 interface WhatsAppResult {
   ok: boolean;
@@ -14,30 +15,26 @@ function normalizePhone(raw: string): string {
 }
 
 /**
- * Uses Twilio Lookup v2 to detect line type.
- * Returns true if likely WhatsApp-capable (mobile/voip/unknown),
- * false if definitely not (landline/toll-free), null if check unavailable.
+ * Free offline check using libphonenumber-js number type detection.
+ * Returns false only if the number is definitively a landline/toll-free.
+ * Mobile, VoIP, and ambiguous numbers return true (optimistic).
+ * Returns null if the number can't be parsed at all.
  */
-export async function checkWhatsAppAvailability(phone: string): Promise<boolean | null> {
-  const accountSid = process.env.TWILIO_ACCOUNT_SID;
-  const authToken = process.env.TWILIO_AUTH_TOKEN;
-
-  if (!accountSid || !authToken) return null;
-
+export function checkWhatsAppAvailability(phone: string): boolean | null {
   const normalized = normalizePhone(phone);
   if (!normalized) return null;
 
   try {
-    const url = `https://lookups.twilio.com/v2/PhoneNumbers/${encodeURIComponent(normalized)}?Fields=line_type_intelligence`;
-    const res = await axios.get<{ line_type_intelligence?: { type?: string } }>(url, {
-      auth: { username: accountSid, password: authToken },
-      timeout: 10_000,
-    });
-    const lineType = res.data?.line_type_intelligence?.type;
-    if (lineType === 'landline' || lineType === 'toll-free') return false;
+    if (!isValidPhoneNumber(normalized)) return null;
+    const parsed = parsePhoneNumber(normalized);
+    const type = parsed.getType();
+    // Definite landlines — WhatsApp not possible
+    if (type === 'FIXED_LINE' || type === 'TOLL_FREE' || type === 'PREMIUM_RATE' || type === 'SHARED_COST') {
+      return false;
+    }
+    // MOBILE, VOIP, FIXED_LINE_OR_MOBILE, PERSONAL_NUMBER, UAN, UNKNOWN, undefined → assume yes
     return true;
   } catch {
-    // Lookup failed (quota, network, etc.) — assume available
     return null;
   }
 }

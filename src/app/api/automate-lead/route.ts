@@ -58,7 +58,7 @@ export async function POST(req: NextRequest) {
 
     // ── WhatsApp availability check + message pre-generation ─────────────────
     if (updatedLead.phone) {
-      const waAvailable = await checkWhatsAppAvailability(updatedLead.phone);
+      const waAvailable = checkWhatsAppAvailability(updatedLead.phone);
       const waMessage = buildWhatsAppMessage(
         updatedLead.businessName,
         emailContent.body,
