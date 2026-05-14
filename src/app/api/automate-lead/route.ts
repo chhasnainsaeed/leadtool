@@ -3,7 +3,7 @@ import { getLeadById, updateLead } from '@/lib/storage';
 import { auditWebsite } from '@/lib/auditor';
 import { generateEmail } from '@/lib/ai';
 import { sendEmail } from '@/lib/mailer';
-import { sendWhatsAppMessage } from '@/lib/whatsapp';
+import { sendWhatsAppMessage, checkWhatsAppAvailability, buildWhatsAppMessage } from '@/lib/whatsapp';
 
 export async function POST(req: NextRequest) {
   try {
@@ -56,17 +56,27 @@ export async function POST(req: NextRequest) {
       result.emailSend = { ok: false, skipped: true, reason: 'recipientEmail not provided' };
     }
 
-    if (sendWhatsapp && updatedLead.phone) {
-      const waBody =
-        `Hi, this is ${process.env.SENDER_NAME || 'LeadTool'}. ` +
-        `I reviewed ${updatedLead.businessName} and can share quick ideas to improve online leads. ` +
-        `If helpful, I can send a short free website concept.`;
-      const wa = await sendWhatsAppMessage(updatedLead.phone, waBody);
-      result.whatsApp = wa.ok
-        ? { ok: true, sid: wa.sid }
-        : { ok: false, error: wa.error };
+    // ── WhatsApp availability check + message pre-generation ─────────────────
+    if (updatedLead.phone) {
+      const waAvailable = await checkWhatsAppAvailability(updatedLead.phone);
+      const waMessage = buildWhatsAppMessage(
+        updatedLead.businessName,
+        emailContent.body,
+      );
+      const leadAfterWa = updateLead(leadId, {
+        hasWhatsApp: waAvailable,
+        whatsAppMessage: waMessage,
+      });
+      if (leadAfterWa) updatedLead = leadAfterWa;
+      result.whatsApp = { checked: true, hasWhatsApp: waAvailable };
     } else {
-      result.whatsApp = { ok: false, skipped: true, reason: sendWhatsapp ? 'No phone on lead' : 'Disabled' };
+      result.whatsApp = { checked: false, reason: 'No phone on lead' };
+    }
+
+    // ── Optional Twilio send (disabled from UI by default) ────────────────────
+    if (sendWhatsapp && updatedLead.phone && updatedLead.hasWhatsApp !== false) {
+      const wa = await sendWhatsAppMessage(updatedLead.phone, updatedLead.whatsAppMessage || '');
+      result.whatsAppSend = wa.ok ? { ok: true, sid: wa.sid } : { ok: false, error: wa.error };
     }
 
     return NextResponse.json({ success: true, result });

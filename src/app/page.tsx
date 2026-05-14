@@ -209,17 +209,26 @@ export default function Home() {
   };
 
   const handleWhatsApp = async (lead: Lead) => {
+    if (!lead.phone) return;
     setLoadingWhatsApp(lead.id);
     try {
-      const res = await fetch('/api/whatsapp-link', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ leadId: lead.id }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Failed to generate WhatsApp link');
-      window.open(data.waLink, '_blank', 'noopener,noreferrer');
-      addToast('Opened WhatsApp link with custom message', 'success');
+      // Use pre-generated message if available, else generate on the fly
+      if (lead.whatsAppMessage) {
+        const phone = lead.phone.replace(/[^\d]/g, '');
+        const waLink = `https://wa.me/${phone}?text=${encodeURIComponent(lead.whatsAppMessage)}`;
+        window.open(waLink, '_blank', 'noopener,noreferrer');
+        addToast('Opened WhatsApp with pre-generated message', 'success');
+      } else {
+        const res = await fetch('/api/whatsapp-link', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ leadId: lead.id }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Failed to generate WhatsApp link');
+        window.open(data.waLink, '_blank', 'noopener,noreferrer');
+        addToast('Opened WhatsApp link with custom message', 'success');
+      }
     } catch (err: unknown) {
       addToast(err instanceof Error ? err.message : 'WhatsApp link failed', 'error');
     } finally {

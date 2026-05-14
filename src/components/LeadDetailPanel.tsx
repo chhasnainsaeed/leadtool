@@ -363,15 +363,35 @@ export default function LeadDetailPanel({
             </button>
           </div>
           <div className="flex gap-2">
-            {lead.phone && (
-              <button
-                onClick={() => onWhatsApp(lead)}
-                disabled={loadingWhatsApp === lead.id}
-                className="flex-1 px-3 py-2 bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs font-medium rounded-lg hover:bg-emerald-100 disabled:opacity-40 transition-colors"
-              >
-                {loadingWhatsApp === lead.id ? '...' : '💬 WhatsApp'}
-              </button>
-            )}
+            {lead.phone && (() => {
+              const noWA = lead.hasWhatsApp === false;
+              const waVerified = lead.hasWhatsApp === true;
+              return (
+                <>
+                  <button
+                    onClick={() => !noWA && onWhatsApp(lead)}
+                    disabled={loadingWhatsApp === lead.id || noWA}
+                    title={noWA ? 'No WhatsApp on this number' : waVerified ? 'WhatsApp verified ✓' : 'Open WhatsApp'}
+                    className={`flex-1 px-3 py-2 text-xs font-medium rounded-lg transition-colors border ${
+                      noWA
+                        ? 'bg-slate-50 border-slate-200 text-slate-400 cursor-not-allowed'
+                        : 'bg-emerald-50 border-emerald-200 text-emerald-700 hover:bg-emerald-100 disabled:opacity-40'
+                    }`}
+                  >
+                    {loadingWhatsApp === lead.id ? '...' : noWA ? '💬 No WhatsApp' : waVerified ? '💬 WhatsApp ✓' : '💬 WhatsApp'}
+                  </button>
+                  {noWA && (
+                    <a
+                      href={`tel:${lead.phone}`}
+                      title="Call this number"
+                      className="flex-1 px-3 py-2 text-xs font-medium rounded-lg border bg-blue-50 border-blue-200 text-blue-700 hover:bg-blue-100 transition-colors text-center"
+                    >
+                      📞 Call
+                    </a>
+                  )}
+                </>
+              );
+            })()}
             {lead.emailContent && (
               <button
                 onClick={() => onViewEmail(lead)}
