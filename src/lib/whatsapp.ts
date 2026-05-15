@@ -1,5 +1,6 @@
 import axios from 'axios';
 import { parsePhoneNumber, isValidPhoneNumber } from 'libphonenumber-js';
+import { normalizePhoneE164 } from './phone';
 
 interface WhatsAppResult {
   ok: boolean;
@@ -7,32 +8,25 @@ interface WhatsAppResult {
   error?: string;
 }
 
-function normalizePhone(raw: string): string {
-  const cleaned = raw.replace(/[^\d+]/g, '');
-  if (!cleaned) return '';
-  if (cleaned.startsWith('+')) return cleaned;
-  return `+${cleaned}`;
-}
-
 /**
  * Free offline check using libphonenumber-js number type detection.
+ * Pass `country` (lead.country) so local numbers without a country code are
+ * parsed correctly before the type check.
  * Returns false only if the number is definitively a landline/toll-free.
  * Mobile, VoIP, and ambiguous numbers return true (optimistic).
  * Returns null if the number can't be parsed at all.
  */
-export function checkWhatsAppAvailability(phone: string): boolean | null {
-  const normalized = normalizePhone(phone);
+export function checkWhatsAppAvailability(phone: string, country?: string): boolean | null {
+  const normalized = normalizePhoneE164(phone, country);
   if (!normalized) return null;
 
   try {
     if (!isValidPhoneNumber(normalized)) return null;
     const parsed = parsePhoneNumber(normalized);
     const type = parsed.getType();
-    // Definite landlines — WhatsApp not possible
     if (type === 'FIXED_LINE' || type === 'TOLL_FREE' || type === 'PREMIUM_RATE' || type === 'SHARED_COST') {
       return false;
     }
-    // MOBILE, VOIP, FIXED_LINE_OR_MOBILE, PERSONAL_NUMBER, UAN, UNKNOWN, undefined → assume yes
     return true;
   } catch {
     return null;
@@ -49,7 +43,7 @@ export function buildWhatsAppMessage(businessName: string, emailBody: string): s
   return `Hi ${businessName}, ${firstLines} Happy to share a free website concept if you're interested.`;
 }
 
-export async function sendWhatsAppMessage(to: string, body: string): Promise<WhatsAppResult> {
+export async function sendWhatsAppMessage(to: string, body: string, country?: string): Promise<WhatsAppResult> {
   const accountSid = process.env.TWILIO_ACCOUNT_SID;
   const authToken = process.env.TWILIO_AUTH_TOKEN;
   const from = process.env.TWILIO_WHATSAPP_FROM;
@@ -61,7 +55,7 @@ export async function sendWhatsAppMessage(to: string, body: string): Promise<Wha
     };
   }
 
-  const normalized = normalizePhone(to);
+  const normalized = normalizePhoneE164(to, country);
   if (!normalized) {
     return { ok: false, error: 'Invalid phone number for WhatsApp.' };
   }

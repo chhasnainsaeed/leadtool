@@ -58,7 +58,7 @@ export async function POST(req: NextRequest) {
 
     // ── WhatsApp availability check + message pre-generation ─────────────────
     if (updatedLead.phone) {
-      const waAvailable = checkWhatsAppAvailability(updatedLead.phone);
+      const waAvailable = checkWhatsAppAvailability(updatedLead.phone, updatedLead.country);
       const waMessage = buildWhatsAppMessage(
         updatedLead.businessName,
         emailContent.body,
@@ -75,7 +75,7 @@ export async function POST(req: NextRequest) {
 
     // ── Optional Twilio send (disabled from UI by default) ────────────────────
     if (sendWhatsapp && updatedLead.phone && updatedLead.hasWhatsApp !== false) {
-      const wa = await sendWhatsAppMessage(updatedLead.phone, updatedLead.whatsAppMessage || '');
+      const wa = await sendWhatsAppMessage(updatedLead.phone, updatedLead.whatsAppMessage || '', updatedLead.country);
       result.whatsAppSend = wa.ok ? { ok: true, sid: wa.sid } : { ok: false, error: wa.error };
     }
 

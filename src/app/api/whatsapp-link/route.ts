@@ -1,21 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getLeadById } from '@/lib/storage';
 import { generateEmail } from '@/lib/ai';
-
-function normalizePhoneForWa(raw: string): string {
-  return raw.replace(/[^\d]/g, '');
-}
-
-function buildWhatsAppMessage(leadName: string, emailBody: string): string {
-  const firstLine = emailBody
-    .split('\n')
-    .map(s => s.trim())
-    .filter(Boolean)
-    .slice(0, 4)
-    .join(' ');
-
-  return `Hi ${leadName}, ${firstLine} If you want, I can share a quick free website concept here.`;
-}
+import { buildWhatsAppMessage, checkWhatsAppAvailability } from '@/lib/whatsapp';
+import { normalizePhoneE164, e164ToWaPhone } from '@/lib/phone';
 
 export async function POST(req: NextRequest) {
   try {
@@ -32,19 +19,24 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Lead has no phone number' }, { status: 400 });
     }
 
-    const phone = normalizePhoneForWa(lead.phone);
-    if (!phone) {
+    const e164 = normalizePhoneE164(lead.phone, lead.country);
+    if (!e164) {
       return NextResponse.json({ error: 'Invalid phone number format' }, { status: 400 });
+    }
+
+    const waAvailable = checkWhatsAppAvailability(e164, lead.country);
+    if (waAvailable === false) {
+      return NextResponse.json({ error: 'This number appears to be a landline — WhatsApp not available' }, { status: 400 });
     }
 
     const emailContent = await generateEmail(lead, lead.auditData);
     const message = buildWhatsAppMessage(lead.businessName, emailContent.body);
-    const waLink = `whatsapp://send?phone=${phone}&text=${encodeURIComponent(message)}`;
+    const waLink = `whatsapp://send?phone=${e164ToWaPhone(e164)}&text=${encodeURIComponent(message)}`;
 
     return NextResponse.json({
       ok: true,
       waLink,
-      phone,
+      phone: e164,
       message,
     });
   } catch (err: unknown) {

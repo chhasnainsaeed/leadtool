@@ -7,6 +7,7 @@ import EmailModal from '@/components/EmailModal';
 import StatsBar from '@/components/StatsBar';
 import LeadDetailPanel from '@/components/LeadDetailPanel';
 import { Lead, SearchParams } from '@/types';
+import { normalizePhoneE164, e164ToWaPhone } from '@/lib/phone';
 
 type Toast = { id: number; message: string; type: 'success' | 'error' | 'info' };
 let toastId = 0;
@@ -214,8 +215,8 @@ export default function Home() {
     try {
       // Use pre-generated message if available, else generate on the fly
       if (lead.whatsAppMessage) {
-        const phone = lead.phone.replace(/[^\d]/g, '');
-        const waLink = `whatsapp://send?phone=${phone}&text=${encodeURIComponent(lead.whatsAppMessage)}`;
+        const e164 = normalizePhoneE164(lead.phone, lead.country);
+        const waLink = `whatsapp://send?phone=${e164ToWaPhone(e164)}&text=${encodeURIComponent(lead.whatsAppMessage)}`;
         window.open(waLink, '_self');
         addToast('Opened WhatsApp with pre-generated message', 'success');
       } else {
