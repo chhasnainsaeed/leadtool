@@ -124,6 +124,21 @@ export default function LeadsTable({
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
   const [filter, setFilter] = useState<FilterKey>('all');
   const [search, setSearch] = useState('');
+  const [countryFilter, setCountryFilter] = useState('');
+  const [cityFilter, setCityFilter] = useState('');
+
+  const countries = useMemo(() =>
+    [...new Set(leads.map(l => l.country).filter(Boolean))].sort(),
+  [leads]);
+
+  const cities = useMemo(() =>
+    [...new Set(
+      leads
+        .filter(l => !countryFilter || l.country === countryFilter)
+        .map(l => l.city)
+        .filter(Boolean)
+    )].sort(),
+  [leads, countryFilter]);
 
   const filtered = useMemo(() => {
     let r = leads;
@@ -133,6 +148,9 @@ export default function LeadsTable({
     else if (filter === 'ready') r = r.filter(l => l.status === 'email_generated');
     else if (filter === 'sent') r = r.filter(l => l.emailSent);
     else if (filter === 'replied') r = r.filter(l => l.status === 'replied');
+
+    if (countryFilter) r = r.filter(l => l.country === countryFilter);
+    if (cityFilter) r = r.filter(l => l.city === cityFilter);
 
     if (search.trim()) {
       const q = search.toLowerCase();
@@ -156,7 +174,7 @@ export default function LeadsTable({
       if (av > bv) return sortDir === 'asc' ? 1 : -1;
       return 0;
     });
-  }, [leads, filter, search, sortCol, sortDir]);
+  }, [leads, filter, countryFilter, cityFilter, search, sortCol, sortDir]);
 
   const toggleSort = (col: SortCol) => {
     if (sortCol === col) setSortDir(d => d === 'asc' ? 'desc' : 'asc');
@@ -214,7 +232,7 @@ export default function LeadsTable({
           {TABS.map(tab => (
             <button
               key={tab.key}
-              onClick={() => { setFilter(tab.key); setSelected(new Set()); }}
+              onClick={() => { setFilter(tab.key); setSelected(new Set()); setCountryFilter(''); setCityFilter(''); }}
               className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium transition-colors ${
                 filter === tab.key
                   ? 'bg-blue-600 text-white'
@@ -228,6 +246,32 @@ export default function LeadsTable({
             </button>
           ))}
           <div className="ml-auto flex items-center gap-2">
+            {/* Country filter */}
+            {countries.length > 0 && (
+              <select
+                value={countryFilter}
+                onChange={e => { setCountryFilter(e.target.value); setCityFilter(''); setSelected(new Set()); }}
+                className="py-1.5 pl-2 pr-7 border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-600 bg-white"
+              >
+                <option value="">All Countries</option>
+                {countries.map(c => (
+                  <option key={c} value={c}>{c}</option>
+                ))}
+              </select>
+            )}
+            {/* City filter — only shown when a country is selected or cities exist */}
+            {cities.length > 0 && (
+              <select
+                value={cityFilter}
+                onChange={e => { setCityFilter(e.target.value); setSelected(new Set()); }}
+                className="py-1.5 pl-2 pr-7 border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-600 bg-white"
+              >
+                <option value="">All Cities</option>
+                {cities.map(c => (
+                  <option key={c} value={c}>{c}</option>
+                ))}
+              </select>
+            )}
             <div className="relative">
               <svg className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
