@@ -3,14 +3,13 @@ import { getLeadById, updateLead } from '@/lib/storage';
 import { auditWebsite } from '@/lib/auditor';
 import { generateEmail } from '@/lib/ai';
 import { sendEmail } from '@/lib/mailer';
-import { sendWhatsAppMessage, checkWhatsAppAvailability, buildWhatsAppMessage } from '@/lib/whatsapp';
+import { checkWhatsAppAvailability, buildWhatsAppMessage } from '@/lib/whatsapp';
 
 export async function POST(req: NextRequest) {
   try {
-    const { leadId, recipientEmail, sendWhatsapp = true } = (await req.json()) as {
+    const { leadId, recipientEmail } = (await req.json()) as {
       leadId: string;
       recipientEmail?: string;
-      sendWhatsapp?: boolean;
     };
 
     if (!leadId) {
@@ -71,12 +70,6 @@ export async function POST(req: NextRequest) {
       result.whatsApp = { checked: true, hasWhatsApp: waAvailable };
     } else {
       result.whatsApp = { checked: false, reason: 'No phone on lead' };
-    }
-
-    // ── Optional Twilio send (disabled from UI by default) ────────────────────
-    if (sendWhatsapp && updatedLead.phone && updatedLead.hasWhatsApp !== false) {
-      const wa = await sendWhatsAppMessage(updatedLead.phone, updatedLead.whatsAppMessage || '', updatedLead.country);
-      result.whatsAppSend = wa.ok ? { ok: true, sid: wa.sid } : { ok: false, error: wa.error };
     }
 
     return NextResponse.json({ success: true, result });
