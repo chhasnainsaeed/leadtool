@@ -39,7 +39,7 @@ export async function POST(req: NextRequest) {
 
     const emailContent = await generateEmail(lead, lead.auditData);
     const message = buildWhatsAppMessage(lead.businessName, emailContent.body);
-    const waLink = `https://wa.me/${phone}?text=${encodeURIComponent(message)}`;
+    const waLink = `whatsapp://send?phone=${phone}&text=${encodeURIComponent(message)}`;
 
     return NextResponse.json({
       ok: true,
