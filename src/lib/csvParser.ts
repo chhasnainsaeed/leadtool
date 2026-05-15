@@ -40,7 +40,7 @@ function parseCSVLine(line: string): string[] {
   return result;
 }
 
-// Exact GBP scraper column headers (from popup.js line 402)
+// GBP scraper column headers + fallback aliases for the app's own export format
 const GBP_HEADERS = [
   'Business Name', 'Category', 'Rating', 'Reviews', 'Phone', 'Address',
   'Website', 'Email', 'Price Range', 'Hours', 'Photos', 'Services', 'Booking Link',
@@ -49,17 +49,36 @@ const GBP_HEADERS = [
   'Audit Score', 'Issues Count', 'Issues Found', 'Pitch Points',
 ];
 
+// Column aliases: app-export header → canonical GBP header
+const ALIASES: Record<string, string> = {
+  'City': 'Search City',
+  'Country': 'Search Country',
+  'GBP Score': 'Audit Score',
+};
+
 function buildIndexMap(headers: string[]): Record<string, number> {
   const map: Record<string, number> = {};
-  // Try exact GBP match first
+  const normalize = (s: string) => s.replace(/^"|"$/g, '').trim();
+
+  // Primary: exact GBP header match
   GBP_HEADERS.forEach(h => {
-    const idx = headers.findIndex(col => col.replace(/^"|"$/g, '').trim() === h);
+    const idx = headers.findIndex(col => normalize(col) === h);
     if (idx >= 0) map[h] = idx;
   });
+
+  // Fallback: alias headers (only if canonical wasn't found)
+  Object.entries(ALIASES).forEach(([alias, canonical]) => {
+    if (map[canonical] === undefined) {
+      const idx = headers.findIndex(col => normalize(col) === alias);
+      if (idx >= 0) map[canonical] = idx;
+    }
+  });
+
+  // Email flexible match
   if (map.Email === undefined) {
     const emailIdx = headers.findIndex(col => {
-      const normalized = col.replace(/^"|"$/g, '').trim().toLowerCase();
-      return normalized === 'email' || normalized === 'e-mail' || normalized === 'contact email';
+      const n = normalize(col).toLowerCase();
+      return n === 'email' || n === 'e-mail' || n === 'contact email';
     });
     if (emailIdx >= 0) map.Email = emailIdx;
   }

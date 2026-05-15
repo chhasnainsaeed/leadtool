@@ -146,6 +146,10 @@ export default function Home() {
       const form = new FormData();
       form.append('file', file);
       const res = await fetch('/api/import-csv', { method: 'POST', body: form });
+      const ct = res.headers.get('content-type') || '';
+      if (!ct.includes('application/json')) {
+        throw new Error(`Server error ${res.status} — try again (first import may take a moment to compile)`);
+      }
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Import failed');
       mergeLeads(data.leads);
