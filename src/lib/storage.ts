@@ -41,7 +41,7 @@ function dedupeKey(lead: Lead): string {
 
 export function getAllLeads(): Lead[] {
   return ensureDB().leads.sort(
-    (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+    (a, b) => (b.leadScore || 0) - (a.leadScore || 0) || new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
   );
 }
 
@@ -55,8 +55,15 @@ export function saveLeads(newLeads: Lead[]): void {
   db.leads.forEach((lead, i) => keyToIndex.set(dedupeKey(lead), i));
 
   for (const lead of newLeads) {
-    const { score, reasons } = computeLeadScore(lead);
-    const normalized: Lead = { ...lead, leadScore: score, leadScoreReasons: reasons };
+    const insight = computeLeadScore(lead);
+    const normalized: Lead = {
+      ...lead,
+      leadScore: insight.score,
+      leadScoreReasons: insight.reasons,
+      priorityTier: insight.priorityTier,
+      recommendedChannel: insight.recommendedChannel,
+      outreachAngle: insight.outreachAngle,
+    };
     const key = dedupeKey(normalized);
     const idxById = db.leads.findIndex(l => l.id === normalized.id);
     const idxByKey = keyToIndex.get(key);
@@ -78,8 +85,15 @@ export function updateLead(id: string, updates: Partial<Lead>): Lead | null {
   const idx = db.leads.findIndex(l => l.id === id);
   if (idx < 0) return null;
   const merged = { ...db.leads[idx], ...updates } as Lead;
-  const { score, reasons } = computeLeadScore(merged);
-  db.leads[idx] = { ...merged, leadScore: score, leadScoreReasons: reasons };
+  const insight = computeLeadScore(merged);
+  db.leads[idx] = {
+    ...merged,
+    leadScore: insight.score,
+    leadScoreReasons: insight.reasons,
+    priorityTier: insight.priorityTier,
+    recommendedChannel: insight.recommendedChannel,
+    outreachAngle: insight.outreachAngle,
+  };
   save(db);
   return db.leads[idx];
 }

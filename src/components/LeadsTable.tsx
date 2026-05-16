@@ -25,7 +25,7 @@ interface Props {
   batchActive?: boolean;
 }
 
-type SortCol = 'businessName' | 'rating' | 'reviews' | 'gbpAuditScore' | 'status' | 'createdAt';
+type SortCol = 'businessName' | 'rating' | 'reviews' | 'gbpAuditScore' | 'status' | 'createdAt' | 'leadScore';
 type FilterKey = 'all' | 'website' | 'no-website' | 'audited' | 'ready' | 'sent' | 'replied';
 
 const STATUS_COLORS: Record<string, string> = {
@@ -122,7 +122,7 @@ export default function LeadsTable({
   loadingProcess, batchActive,
 }: Props) {
   const [selected, setSelected] = useState<Set<string>>(new Set());
-  const [sortCol, setSortCol] = useState<SortCol>('createdAt');
+  const [sortCol, setSortCol] = useState<SortCol>('leadScore');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
   const [filter, setFilter] = useState<FilterKey>('all');
   const [search, setSearch] = useState('');
@@ -170,6 +170,7 @@ export default function LeadsTable({
       else if (sortCol === 'rating') { av = a.rating || 0; bv = b.rating || 0; }
       else if (sortCol === 'reviews') { av = a.reviews || 0; bv = b.reviews || 0; }
       else if (sortCol === 'gbpAuditScore') { av = a.gbpAuditScore || 0; bv = b.gbpAuditScore || 0; }
+      else if (sortCol === 'leadScore') { av = a.leadScore || 0; bv = b.leadScore || 0; }
       else if (sortCol === 'status') { av = a.status; bv = b.status; }
       else { av = a.createdAt; bv = b.createdAt; }
       if (av < bv) return sortDir === 'asc' ? -1 : 1;
@@ -379,6 +380,14 @@ export default function LeadsTable({
               </th>
               <th
                 className="text-left px-3 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide cursor-pointer select-none hover:text-slate-700"
+                onClick={() => toggleSort('leadScore')}
+              >
+                <div className="flex items-center gap-1">
+                  Priority <SortIcon active={sortCol === 'leadScore'} dir={sortDir} />
+                </div>
+              </th>
+              <th
+                className="text-left px-3 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide cursor-pointer select-none hover:text-slate-700"
                 onClick={() => toggleSort('status')}
               >
                 <div className="flex items-center gap-1">
@@ -450,6 +459,18 @@ export default function LeadsTable({
                 </td>
 
                 {/* Status */}
+                <td className="px-3 py-3">
+                  <div className="flex flex-col gap-1">
+                    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold ${
+                      lead.priorityTier === 'P1' ? 'bg-red-100 text-red-700' :
+                      lead.priorityTier === 'P2' ? 'bg-amber-100 text-amber-700' :
+                      'bg-slate-100 text-slate-600'
+                    }`}>
+                      {lead.priorityTier || 'P3'} • {lead.leadScore ?? 0}
+                    </span>
+                    <span className="text-xs text-slate-400">{lead.recommendedChannel || 'email'}</span>
+                  </div>
+                </td>
                 <td className="px-3 py-3">
                   <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${STATUS_COLORS[lead.status] || STATUS_COLORS.new}`}>
                     {STATUS_LABELS[lead.status] || lead.status}

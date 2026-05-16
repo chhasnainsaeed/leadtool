@@ -22,6 +22,9 @@ export default function StatsBar({
   const ready = leads.filter(l => l.status === 'email_generated').length;
   const sent = leads.filter(l => l.emailSent).length;
   const replied = leads.filter(l => l.status === 'replied').length;
+  const p1 = leads.filter(l => l.priorityTier === 'P1').length;
+  const p2 = leads.filter(l => l.priorityTier === 'P2').length;
+  const p3 = leads.filter(l => l.priorityTier === 'P3' || !l.priorityTier).length;
 
   if (total === 0) return null;
 
@@ -60,6 +63,9 @@ export default function StatsBar({
             { label: 'Total', value: total, color: 'text-slate-800' },
             { label: 'Has Website', value: withWebsite, color: 'text-blue-600' },
             { label: 'Audited', value: audited, color: 'text-indigo-600' },
+            { label: 'P1 Hot', value: p1, color: 'text-red-600' },
+            { label: 'P2 Warm', value: p2, color: 'text-amber-600' },
+            { label: 'P3 Later', value: p3, color: 'text-slate-500' },
             { label: 'Email Ready', value: ready, color: 'text-purple-600' },
             { label: 'Sent', value: sent, color: 'text-green-600' },
             { label: 'Replied', value: replied, color: 'text-emerald-600' },

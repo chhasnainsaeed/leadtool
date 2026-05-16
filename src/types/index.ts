@@ -89,6 +89,9 @@ export interface Lead {
   sourcePlatform?: string;
   leadScore?: number;
   leadScoreReasons?: string[];
+  priorityTier?: 'P1' | 'P2' | 'P3';
+  recommendedChannel?: 'email' | 'whatsapp' | 'social' | 'call';
+  outreachAngle?: string;
   // WhatsApp
   hasWhatsApp?: boolean | null;
   whatsAppMessage?: string;
