@@ -221,8 +221,8 @@ export default function Home() {
       // Use pre-generated message if available, else generate on the fly
       if (lead.whatsAppMessage) {
         const e164 = normalizePhoneE164(lead.phone, lead.country);
-        const waLink = `https://wa.me/${e164ToWaPhone(e164)}?text=${encodeURIComponent(lead.whatsAppMessage)}`;
-        window.open(waLink, '_self');
+        const waLink = `whatsapp://send?phone=${e164ToWaPhone(e164)}&text=${encodeURIComponent(lead.whatsAppMessage)}`;
+        window.location.href = waLink;
         addToast('Opened WhatsApp with pre-generated message', 'success');
       } else {
         const res = await fetch('/api/whatsapp-link', {
@@ -232,7 +232,7 @@ export default function Home() {
         });
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || 'Failed to generate WhatsApp link');
-        window.open(data.waLink, '_self');
+        window.location.href = data.waLink;
         addToast('Opened WhatsApp link with custom message', 'success');
       }
     } catch (err: unknown) {
