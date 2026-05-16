@@ -5,7 +5,7 @@ import { Lead, AuditData, EmailContent } from '@/types';
 const SENDER_NAME = process.env.SENDER_NAME || 'Your Name';
 const SENDER_EMAIL = process.env.SMTP_USER || '';
 const AI_PROVIDER = (process.env.AI_PROVIDER || 'gemini').toLowerCase();
-const GEMINI_TEXT_MODEL = process.env.GEMINI_TEXT_MODEL || 'gemini-2.5-pro';
+const GEMINI_TEXT_MODEL = process.env.GEMINI_TEXT_MODEL || 'gemini-3-flash-preview';
 
 const SYSTEM_PROMPT = `You are a conversion-focused cold outreach writer for a web design agency.
 Every email you write gets replies because it is specific and brief — never generic.
