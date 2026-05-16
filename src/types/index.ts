@@ -92,6 +92,8 @@ export interface Lead {
   // WhatsApp
   hasWhatsApp?: boolean | null;
   whatsAppMessage?: string;
+  socialPlatform?: 'facebook' | 'instagram' | null;
+  socialMessage?: string;
   // user notes
   notes?: string;
 }

@@ -4,7 +4,7 @@ import { auditWebsite } from '@/lib/auditor';
 import { generateEmail } from '@/lib/ai';
 import { sendEmail } from '@/lib/mailer';
 import { checkWhatsAppAvailability, buildWhatsAppMessage } from '@/lib/whatsapp';
-import { buildFallbackOutreachMessage } from '@/lib/outreachMessage';
+import { buildFallbackOutreachMessage, buildSocialOutreachMessage, detectSocialPlatform } from '@/lib/outreachMessage';
 
 export async function POST(req: NextRequest) {
   try {
@@ -25,13 +25,23 @@ export async function POST(req: NextRequest) {
     let updatedLead = lead;
     const result: Record<string, unknown> = { leadId, businessName: lead.businessName };
 
+    const socialPlatform = detectSocialPlatform(lead.website || lead.socialMedia);
     if (lead.hasRealWebsite && lead.website) {
       const auditData = await auditWebsite(lead.website);
       const leadAfterAudit = updateLead(leadId, { auditData, status: 'audited' });
       if (leadAfterAudit) updatedLead = leadAfterAudit;
       result.audit = { ok: true, performance: auditData.performance, issues: auditData.issues.length };
+    } else if (socialPlatform) {
+      const socialMessage = buildSocialOutreachMessage(lead, socialPlatform);
+      const leadAfterSocial = updateLead(leadId, { socialPlatform, socialMessage, status: 'audited' });
+      if (leadAfterSocial) updatedLead = leadAfterSocial;
+      result.audit = { ok: false, skipped: true, reason: 'Social profile lead', socialPlatform };
     } else {
       result.audit = { ok: false, skipped: true, reason: 'No real website' };
+      if (updatedLead.status === 'new') {
+        const leadAfterState = updateLead(leadId, { status: 'audited' });
+        if (leadAfterState) updatedLead = leadAfterState;
+      }
     }
 
     let emailBodyForMessaging = updatedLead.emailContent?.body || buildFallbackOutreachMessage(updatedLead);
@@ -69,7 +79,7 @@ export async function POST(req: NextRequest) {
       const waAvailable = checkWhatsAppAvailability(updatedLead.phone, updatedLead.country);
       const waMessage = buildWhatsAppMessage(
         updatedLead.businessName,
-        emailBodyForMessaging,
+        updatedLead.socialMessage || emailBodyForMessaging,
       );
       const leadAfterWa = updateLead(leadId, {
         hasWhatsApp: waAvailable,

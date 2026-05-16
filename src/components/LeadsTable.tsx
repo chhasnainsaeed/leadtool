@@ -491,7 +491,7 @@ export default function LeadsTable({
                     )}
 
                     {/* WhatsApp / Call buttons based on WA availability */}
-                    {lead.phone && (() => {
+                    {lead.phone && lead.status !== 'new' && (() => {
                       const waChecked = lead.hasWhatsApp !== undefined && lead.hasWhatsApp !== null;
                       const hasWA = lead.hasWhatsApp !== false; // true or null/undefined = show WA
                       const noWA = lead.hasWhatsApp === false;
@@ -539,7 +539,7 @@ export default function LeadsTable({
                       );
                     })()}
 
-                    {!lead.hasRealWebsite && lead.website && lead.website !== 'N/A' && (lead.website.includes('facebook.com') || lead.website.includes('instagram.com')) && (
+                    {lead.status !== 'new' && !lead.hasRealWebsite && lead.website && lead.website !== 'N/A' && (lead.website.includes('facebook.com') || lead.website.includes('instagram.com')) && (
                       <button
                         onClick={() => onSocialMessage(lead)}
                         title={lead.website.includes('instagram.com') ? 'Open Instagram' : 'Open Facebook'}

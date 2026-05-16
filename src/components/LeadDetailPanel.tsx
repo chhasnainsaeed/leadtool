@@ -363,7 +363,7 @@ export default function LeadDetailPanel({
             >
               {loadingEmail === lead.id ? 'Generating...' : '✦ Generate Email'}
             </button>
-            {!lead.hasRealWebsite && lead.website && lead.website !== 'N/A' && (lead.website.includes('facebook.com') || lead.website.includes('instagram.com')) && (
+            {lead.status !== 'new' && !lead.hasRealWebsite && lead.website && lead.website !== 'N/A' && (lead.website.includes('facebook.com') || lead.website.includes('instagram.com')) && (
               <button
                 onClick={() => onSocialMessage(lead)}
                 className="flex-1 px-3 py-2 border border-blue-200 text-blue-700 text-xs font-medium rounded-lg hover:bg-blue-50 transition-colors"
@@ -373,7 +373,7 @@ export default function LeadDetailPanel({
             )}
           </div>
           <div className="flex gap-2">
-            {lead.phone && (() => {
+            {lead.phone && lead.status !== 'new' && (() => {
               const noWA = lead.hasWhatsApp === false;
               const waVerified = lead.hasWhatsApp === true;
               return (

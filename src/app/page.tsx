@@ -247,7 +247,7 @@ export default function Home() {
     if (!social) return;
     const platform = detectSocialPlatform(social);
     if (!platform) return;
-    const message = encodeURIComponent(lead.emailContent?.body || buildFallbackOutreachMessage(lead));
+    const message = encodeURIComponent(lead.socialMessage || lead.emailContent?.body || buildFallbackOutreachMessage(lead));
     if (platform === 'facebook') {
       const url = `${social}${social.includes('?') ? '&' : '?'}app=fbl&ref=leadtool&text=${message}`;
       window.open(url, '_blank', 'noopener,noreferrer');
