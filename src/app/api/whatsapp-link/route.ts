@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getLeadById } from '@/lib/storage';
-import { generateEmail } from '@/lib/ai';
 import { buildWhatsAppMessage, checkWhatsAppAvailability } from '@/lib/whatsapp';
 import { normalizePhoneE164, e164ToWaPhone } from '@/lib/phone';
+import { buildFallbackOutreachMessage } from '@/lib/outreachMessage';
 
 export async function POST(req: NextRequest) {
   try {
@@ -29,8 +29,8 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'This number appears to be a landline — WhatsApp not available' }, { status: 400 });
     }
 
-    const emailContent = await generateEmail(lead, lead.auditData);
-    const message = buildWhatsAppMessage(lead.businessName, emailContent.body);
+    const baseText = lead.emailContent?.body || buildFallbackOutreachMessage(lead);
+    const message = buildWhatsAppMessage(lead.businessName, baseText);
     const waLink = `whatsapp://send?phone=${e164ToWaPhone(e164)}&text=${encodeURIComponent(message)}`;
 
     return NextResponse.json({

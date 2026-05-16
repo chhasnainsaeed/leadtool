@@ -8,6 +8,7 @@ import StatsBar from '@/components/StatsBar';
 import LeadDetailPanel from '@/components/LeadDetailPanel';
 import { Lead, SearchParams } from '@/types';
 import { normalizePhoneE164, e164ToWaPhone } from '@/lib/phone';
+import { buildFallbackOutreachMessage, detectSocialPlatform } from '@/lib/outreachMessage';
 
 type Toast = { id: number; message: string; type: 'success' | 'error' | 'info' };
 let toastId = 0;
@@ -239,6 +240,24 @@ export default function Home() {
     } finally {
       setLoadingWhatsApp(null);
     }
+  };
+
+  const handleSocialMessage = (lead: Lead) => {
+    const social = lead.website || lead.socialMedia;
+    if (!social) return;
+    const platform = detectSocialPlatform(social);
+    if (!platform) return;
+    const message = encodeURIComponent(lead.emailContent?.body || buildFallbackOutreachMessage(lead));
+    if (platform === 'facebook') {
+      const url = `${social}${social.includes('?') ? '&' : '?'}app=fbl&ref=leadtool&text=${message}`;
+      window.open(url, '_blank', 'noopener,noreferrer');
+      return;
+    }
+    if (platform === 'instagram') {
+      window.open(social, '_blank', 'noopener,noreferrer');
+      return;
+    }
+    window.open(social, '_blank', 'noopener,noreferrer');
   };
 
   const handleClearAll = async () => {
@@ -473,6 +492,7 @@ export default function Home() {
               onViewEmail={setEmailModalLead}
               onDelete={handleDelete}
               onWhatsApp={handleWhatsApp}
+              onSocialMessage={handleSocialMessage}
               onProcessLead={handleProcessLead}
               onOpenDetail={setDetailLead}
               onBulkAudit={handleBulkAudit}
@@ -519,6 +539,7 @@ export default function Home() {
           onGenerateEmail={lead => { handleGenerateEmail(lead); }}
           onViewEmail={setEmailModalLead}
           onWhatsApp={handleWhatsApp}
+          onSocialMessage={handleSocialMessage}
           onNotesChange={handleNotesChange}
           onMarkReplied={handleMarkReplied}
           loadingAudit={loadingAudit}

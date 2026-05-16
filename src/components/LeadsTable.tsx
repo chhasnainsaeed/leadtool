@@ -10,6 +10,7 @@ interface Props {
   onViewEmail: (lead: Lead) => void;
   onDelete: (id: string) => void;
   onWhatsApp: (lead: Lead) => void;
+  onSocialMessage: (lead: Lead) => void;
   onProcessLead: (lead: Lead) => void;
   onOpenDetail: (lead: Lead) => void;
   onBulkAudit: (leads: Lead[]) => void;
@@ -115,6 +116,7 @@ function WebsiteCell({ lead }: { lead: Lead }) {
 
 export default function LeadsTable({
   leads, onAudit, onGenerateEmail, onViewEmail, onDelete, onWhatsApp,
+  onSocialMessage,
   onProcessLead, onOpenDetail, onBulkAudit, onBulkGenerateEmail, onBulkDelete,
   onBulkProcess, onExportCSV, loadingAudit, loadingEmail, loadingWhatsApp,
   loadingProcess, batchActive,
@@ -536,6 +538,16 @@ export default function LeadsTable({
                         </>
                       );
                     })()}
+
+                    {!lead.hasRealWebsite && lead.website && lead.website !== 'N/A' && (lead.website.includes('facebook.com') || lead.website.includes('instagram.com')) && (
+                      <button
+                        onClick={() => onSocialMessage(lead)}
+                        title={lead.website.includes('instagram.com') ? 'Open Instagram' : 'Open Facebook'}
+                        className="p-1.5 rounded-lg text-blue-600 bg-blue-50 hover:bg-blue-100 transition-colors"
+                      >
+                        {lead.website.includes('instagram.com') ? 'IG' : 'FB'}
+                      </button>
+                    )}
 
                     {/* Delete */}
                     <button

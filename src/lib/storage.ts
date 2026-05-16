@@ -1,6 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import { Lead, LeadsDB } from '@/types';
+import { computeLeadScore } from '@/lib/leadScore';
 
 const DB_PATH = path.join(process.cwd(), 'data', 'leads.json');
 
@@ -20,6 +21,24 @@ function save(db: LeadsDB) {
   fs.writeFileSync(DB_PATH, JSON.stringify(db, null, 2));
 }
 
+function canonicalDomain(url: string): string {
+  if (!url) return '';
+  try {
+    const host = new URL(url.startsWith('http') ? url : `https://${url}`).hostname.toLowerCase();
+    return host.replace(/^www\./, '');
+  } catch {
+    return '';
+  }
+}
+
+function dedupeKey(lead: Lead): string {
+  const name = (lead.businessName || '').trim().toLowerCase();
+  const address = (lead.address || '').trim().toLowerCase();
+  const phone = (lead.phone || '').replace(/\D+/g, '');
+  const domain = canonicalDomain(lead.website || lead.socialMedia || '');
+  return [name, address, phone, domain].join('|');
+}
+
 export function getAllLeads(): Lead[] {
   return ensureDB().leads.sort(
     (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
@@ -32,10 +51,24 @@ export function getLeadById(id: string): Lead | undefined {
 
 export function saveLeads(newLeads: Lead[]): void {
   const db = ensureDB();
+  const keyToIndex = new Map<string, number>();
+  db.leads.forEach((lead, i) => keyToIndex.set(dedupeKey(lead), i));
+
   for (const lead of newLeads) {
-    const idx = db.leads.findIndex(l => l.id === lead.id);
-    if (idx >= 0) db.leads[idx] = lead;
-    else db.leads.push(lead);
+    const { score, reasons } = computeLeadScore(lead);
+    const normalized: Lead = { ...lead, leadScore: score, leadScoreReasons: reasons };
+    const key = dedupeKey(normalized);
+    const idxById = db.leads.findIndex(l => l.id === normalized.id);
+    const idxByKey = keyToIndex.get(key);
+    const idx = idxById >= 0 ? idxById : idxByKey ?? -1;
+
+    if (idx >= 0) {
+      db.leads[idx] = { ...db.leads[idx], ...normalized };
+      keyToIndex.set(key, idx);
+    } else {
+      db.leads.push(normalized);
+      keyToIndex.set(key, db.leads.length - 1);
+    }
   }
   save(db);
 }
@@ -44,7 +77,9 @@ export function updateLead(id: string, updates: Partial<Lead>): Lead | null {
   const db = ensureDB();
   const idx = db.leads.findIndex(l => l.id === id);
   if (idx < 0) return null;
-  db.leads[idx] = { ...db.leads[idx], ...updates };
+  const merged = { ...db.leads[idx], ...updates } as Lead;
+  const { score, reasons } = computeLeadScore(merged);
+  db.leads[idx] = { ...merged, leadScore: score, leadScoreReasons: reasons };
   save(db);
   return db.leads[idx];
 }

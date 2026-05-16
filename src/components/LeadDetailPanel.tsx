@@ -10,6 +10,7 @@ interface Props {
   onGenerateEmail: (lead: Lead) => void;
   onViewEmail: (lead: Lead) => void;
   onWhatsApp: (lead: Lead) => void;
+  onSocialMessage: (lead: Lead) => void;
   onNotesChange: (leadId: string, notes: string) => void;
   onMarkReplied: (lead: Lead) => void;
   loadingAudit: string | null;
@@ -58,6 +59,7 @@ function ScoreGauge({ label, score }: { label: string; score: number }) {
 
 export default function LeadDetailPanel({
   lead, onClose, onAudit, onGenerateEmail, onViewEmail, onWhatsApp,
+  onSocialMessage,
   onNotesChange, onMarkReplied, loadingAudit, loadingEmail, loadingWhatsApp,
 }: Props) {
   const [notes, setNotes] = useState(lead?.notes || '');
@@ -361,6 +363,14 @@ export default function LeadDetailPanel({
             >
               {loadingEmail === lead.id ? 'Generating...' : '✦ Generate Email'}
             </button>
+            {!lead.hasRealWebsite && lead.website && lead.website !== 'N/A' && (lead.website.includes('facebook.com') || lead.website.includes('instagram.com')) && (
+              <button
+                onClick={() => onSocialMessage(lead)}
+                className="flex-1 px-3 py-2 border border-blue-200 text-blue-700 text-xs font-medium rounded-lg hover:bg-blue-50 transition-colors"
+              >
+                {lead.website.includes('instagram.com') ? 'Open Instagram' : 'Open Facebook'}
+              </button>
+            )}
           </div>
           <div className="flex gap-2">
             {lead.phone && (() => {

@@ -86,6 +86,9 @@ export interface Lead {
   createdAt: string;
   // source tracking
   sourceFile?: string;
+  sourcePlatform?: string;
+  leadScore?: number;
+  leadScoreReasons?: string[];
   // WhatsApp
   hasWhatsApp?: boolean | null;
   whatsAppMessage?: string;

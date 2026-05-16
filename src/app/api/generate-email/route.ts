@@ -17,6 +17,9 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'leadId or lead object is required' }, { status: 400 });
     }
 
+    if (!lead.email) {
+      return NextResponse.json({ error: 'Lead has no email; skip email generation.' }, { status: 400 });
+    }
     const emailContent = await generateEmail(lead, lead.auditData);
 
     if (leadId) {

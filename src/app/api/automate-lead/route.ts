@@ -4,6 +4,7 @@ import { auditWebsite } from '@/lib/auditor';
 import { generateEmail } from '@/lib/ai';
 import { sendEmail } from '@/lib/mailer';
 import { checkWhatsAppAvailability, buildWhatsAppMessage } from '@/lib/whatsapp';
+import { buildFallbackOutreachMessage } from '@/lib/outreachMessage';
 
 export async function POST(req: NextRequest) {
   try {
@@ -33,16 +34,24 @@ export async function POST(req: NextRequest) {
       result.audit = { ok: false, skipped: true, reason: 'No real website' };
     }
 
-    const emailContent = await generateEmail(updatedLead, updatedLead.auditData);
-    const leadAfterEmail = updateLead(leadId, { emailContent, status: 'email_generated' });
-    if (leadAfterEmail) updatedLead = leadAfterEmail;
-    result.emailGeneration = { ok: true, subject: emailContent.subject };
+    let emailBodyForMessaging = updatedLead.emailContent?.body || buildFallbackOutreachMessage(updatedLead);
+    let emailSubjectForSending = updatedLead.emailContent?.subject || '';
+    if (recipientEmail) {
+      const emailContent = await generateEmail(updatedLead, updatedLead.auditData);
+      emailBodyForMessaging = emailContent.body;
+      emailSubjectForSending = emailContent.subject;
+      const leadAfterEmail = updateLead(leadId, { emailContent, status: 'email_generated' });
+      if (leadAfterEmail) updatedLead = leadAfterEmail;
+      result.emailGeneration = { ok: true, subject: emailContent.subject };
+    } else {
+      result.emailGeneration = { ok: false, skipped: true, reason: 'No recipient email' };
+    }
 
     if (recipientEmail) {
       await sendEmail({
         to: recipientEmail,
-        subject: emailContent.subject,
-        body: emailContent.body,
+        subject: emailSubjectForSending,
+        body: emailBodyForMessaging,
       });
       const leadAfterSend = updateLead(leadId, {
         emailSent: true,
@@ -60,7 +69,7 @@ export async function POST(req: NextRequest) {
       const waAvailable = checkWhatsAppAvailability(updatedLead.phone, updatedLead.country);
       const waMessage = buildWhatsAppMessage(
         updatedLead.businessName,
-        emailContent.body,
+        emailBodyForMessaging,
       );
       const leadAfterWa = updateLead(leadId, {
         hasWhatsApp: waAvailable,

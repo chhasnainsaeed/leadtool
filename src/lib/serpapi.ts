@@ -62,5 +62,6 @@ export async function searchGoogleBusiness(
     emailSent: false,
     status: 'new',
     createdAt: new Date().toISOString(),
+    sourcePlatform: 'google_maps_serpapi',
   }));
 }

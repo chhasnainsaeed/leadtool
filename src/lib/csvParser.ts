@@ -160,6 +160,7 @@ export function parseGBPCsv(
       status: 'new',
       createdAt: new Date().toISOString(),
       sourceFile,
+      sourcePlatform: 'csv_import',
     });
   }
 
