@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getLeadById, updateLead } from '@/lib/storage';
 import { auditWebsite } from '@/lib/auditor';
-import { generateEmail } from '@/lib/ai';
+import { generateEmail, generateWhatsAppMessage } from '@/lib/ai';
 import { sendEmail } from '@/lib/mailer';
 import { checkWhatsAppAvailability, buildWhatsAppMessage } from '@/lib/whatsapp';
 import { buildFallbackOutreachMessage, buildSocialOutreachMessage, detectSocialPlatform } from '@/lib/outreachMessage';
@@ -74,13 +74,18 @@ export async function POST(req: NextRequest) {
       result.emailSend = { ok: false, skipped: true, reason: 'recipientEmail not provided' };
     }
 
-    // ── WhatsApp availability check + message pre-generation ─────────────────
+    // ── WhatsApp availability check + AI message pre-generation ─────────────
     if (updatedLead.phone) {
       const waAvailable = checkWhatsAppAvailability(updatedLead.phone, updatedLead.country);
-      const waMessage = buildWhatsAppMessage(
-        updatedLead.businessName,
-        updatedLead.socialMessage || emailBodyForMessaging,
-      );
+      let waMessage: string;
+      try {
+        waMessage = await generateWhatsAppMessage(updatedLead, updatedLead.auditData);
+      } catch {
+        waMessage = buildWhatsAppMessage(
+          updatedLead.businessName,
+          updatedLead.socialMessage || emailBodyForMessaging,
+        );
+      }
       const leadAfterWa = updateLead(leadId, {
         hasWhatsApp: waAvailable,
         whatsAppMessage: waMessage,

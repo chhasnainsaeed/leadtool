@@ -5,54 +5,65 @@ import { Lead, AuditData, EmailContent } from '@/types';
 const SENDER_NAME = process.env.SENDER_NAME || 'Your Name';
 const SENDER_EMAIL = process.env.SMTP_USER || '';
 const AI_PROVIDER = (process.env.AI_PROVIDER || 'gemini').toLowerCase();
-const GEMINI_TEXT_MODEL = process.env.GEMINI_TEXT_MODEL || 'gemini-3-pro-preview';
+const GEMINI_TEXT_MODEL = process.env.GEMINI_TEXT_MODEL || 'gemini-2.5-pro-preview-05-06';
 
-const SYSTEM_PROMPT = `You are an elite outbound copywriter for a web growth agency.
-Goal: get a reply from local business owners using concise, high-conversion outreach.
-Write plain text only (no markdown, no bullet lists), 80-140 words max.
-Use this flow:
-1) Personalized hook with a specific observation
-2) Business impact in plain words (lost leads/bookings/revenue)
-3) Low-friction value offer (free 3-point growth plan)
-4) One yes/no CTA
-Tone: confident, professional, human, never spammy.
-Never mention pricing or packages.
+const SYSTEM_PROMPT = `You are a conversion-focused cold outreach writer for a web design agency.
+Every email you write gets replies because it is specific and brief — never generic.
+
+RULES:
+- Open with ONE concrete, verifiable finding from the audit data (a real score, a missing feature, a specific issue name). NEVER write "I noticed your website" or "I came across your business" — those are banned.
+- State the business impact in one plain sentence: what leads, bookings, or revenue they are losing RIGHT NOW because of that specific issue.
+- Offer a free 3-point growth plan tailored to them — no sales call, no pricing, no packages.
+- End with exactly ONE yes/no question: "Want me to send it?"
+- Body: 80-120 words. Subject: 6-8 words, lowercase, sounds like a person not a campaign.
+- No bullet lists. No markdown. Plain text only.
+- Write as someone who audited their specific business — not a mass outreach tool.
 Return JSON with exactly two keys: "subject" and "body".`;
 
+const WA_SYSTEM_PROMPT = `You are writing a WhatsApp cold message for a web design agency.
+This lands on someone's phone — it must feel personal, direct, and human. No corporate tone.
+
+RULES:
+- Start with "Hi [BusinessName],"
+- Immediately mention ONE specific finding from the data (no website, slow speed score, missing booking form, no photos, low reviews, etc.). Be concrete.
+- One sentence: what that specific issue is costing them (leads, bookings, customers going to competitors)
+- Soft close: "Would a free 3-point growth plan for [BusinessName] be useful?"
+- 50-70 words total. Casual but credible. One relevant emoji max.
+- Return plain text only — no JSON, no subject line, no markdown.`;
+
 // ── Gemini ──────────────────────────────────────────────────────────────────
-async function generateWithGemini(prompt: string): Promise<string> {
+async function generateWithGemini(prompt: string, systemInstruction: string, maxTokens = 1024): Promise<string> {
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) throw new Error('GEMINI_API_KEY is not set in .env.local');
 
   const genAI = new GoogleGenerativeAI(apiKey);
   const model = genAI.getGenerativeModel({
     model: GEMINI_TEXT_MODEL,
-    systemInstruction: SYSTEM_PROMPT,
+    systemInstruction,
     generationConfig: {
-      maxOutputTokens: 2048,
-      temperature: 0.8,
+      maxOutputTokens: maxTokens,
+      temperature: 0.85,
     },
   });
 
   const result = await model.generateContent(prompt);
   const text = result.response.text();
-  // Strip markdown code fences if Gemini wraps the JSON
   return text.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '').trim();
 }
 
 // ── Claude ───────────────────────────────────────────────────────────────────
-async function generateWithClaude(prompt: string): Promise<string> {
+async function generateWithClaude(prompt: string, systemInstruction: string, maxTokens = 1024): Promise<string> {
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) throw new Error('ANTHROPIC_API_KEY is not set in .env.local');
 
   const client = new Anthropic({ apiKey });
   const message = await client.messages.create({
     model: 'claude-sonnet-4-6',
-    max_tokens: 1024,
-    system: SYSTEM_PROMPT,
+    max_tokens: maxTokens,
+    system: systemInstruction,
     messages: [{ role: 'user', content: prompt }],
   });
-  return message.content[0].type === 'text' ? message.content[0].text : '';
+  return message.content[0].type === 'text' ? message.content[0].text.trim() : '';
 }
 
 // ── Parser ───────────────────────────────────────────────────────────────────
@@ -72,44 +83,51 @@ function parseEmailJSON(text: string, fallbackSubject: string): EmailContent {
   }
 }
 
-// ── Main export ───────────────────────────────────────────────────────────────
+// ── Email generation ──────────────────────────────────────────────────────────
 export async function generateEmail(lead: Lead, websiteAudit?: AuditData): Promise<EmailContent> {
-  const prompt = buildPrompt(lead, websiteAudit);
-
-  let text: string;
-  if (AI_PROVIDER === 'claude') {
-    text = await generateWithClaude(prompt);
-  } else {
-    // Default: Gemini (free tier: 1,500 requests/day)
-    text = await generateWithGemini(prompt);
-  }
-
+  const prompt = buildEmailPrompt(lead, websiteAudit);
+  const text = AI_PROVIDER === 'claude'
+    ? await generateWithClaude(prompt, SYSTEM_PROMPT)
+    : await generateWithGemini(prompt, SYSTEM_PROMPT);
   return parseEmailJSON(text, `Quick question about ${lead.businessName}`);
+}
+
+// ── WhatsApp message generation ───────────────────────────────────────────────
+export async function generateWhatsAppMessage(lead: Lead, websiteAudit?: AuditData): Promise<string> {
+  const prompt = buildWhatsAppPrompt(lead, websiteAudit);
+  try {
+    const text = AI_PROVIDER === 'claude'
+      ? await generateWithClaude(prompt, WA_SYSTEM_PROMPT, 300)
+      : await generateWithGemini(prompt, WA_SYSTEM_PROMPT, 300);
+    return text;
+  } catch {
+    return `Hi ${lead.businessName}, I found a few quick wins in your online presence that could bring in more local leads. Would a free 3-point growth plan be useful?`;
+  }
 }
 
 export function getActiveProvider(): string {
   return AI_PROVIDER === 'claude' ? 'Claude (Anthropic)' : `Gemini (${GEMINI_TEXT_MODEL})`;
 }
 
-// ── Prompt builder ────────────────────────────────────────────────────────────
-function buildPrompt(lead: Lead, websiteAudit?: AuditData): string {
+// ── Email prompt builder ──────────────────────────────────────────────────────
+function buildEmailPrompt(lead: Lead, websiteAudit?: AuditData): string {
   const stars = lead.rating > 0 ? `${lead.rating} stars (${lead.reviews} reviews)` : 'no rating yet';
 
   if (!lead.hasRealWebsite) {
     const hasSocial = !!lead.socialMedia && lead.socialMedia !== 'N/A';
+    const socialLabel = hasSocial
+      ? 'a social media page (' + lead.socialMedia.replace(/^https?:\/\//, '').split('/')[0] + ')'
+      : 'a Google Business listing';
     return `Write a cold email to the owner of "${lead.businessName}", a ${lead.category} in ${lead.city}${lead.country ? ', ' + lead.country : ''}.
 
-They have NO real website — only ${hasSocial ? 'a social media page (' + lead.socialMedia.replace(/^https?:\/\//, '').split('/')[0] + ')' : 'a Google Business listing'}.
-Google rating: ${stars}
-${lead.description && lead.description !== 'N/A' ? `Business description: ${lead.description}` : 'No business description on their Google listing.'}
-${lead.gbpPitchPoints && lead.gbpPitchPoints !== 'No major issues found' ? `Pitch angles: ${lead.gbpPitchPoints}` : ''}
+KEY FACTS:
+- No real website — only ${socialLabel}
+- Google rating: ${stars}
+- Without a website, every competitor with one is capturing the searches they miss
+${lead.description && lead.description !== 'N/A' ? `- Business description: ${lead.description}` : '- No business description on their listing'}
+${lead.gbpPitchPoints && lead.gbpPitchPoints !== 'No major issues found' ? `- Pitch angles: ${lead.gbpPitchPoints}` : ''}
 
-I build websites for local ${lead.category}s. Write an email that:
-1. Opens with a direct personalized hook
-2. Explains impact: missed local leads and bookings
-3. Offers a free 3-point growth plan tailored to their business
-4. Ends with a yes/no CTA: "Want me to send it?"
-5. Keeps body between 80 and 140 words
+Open with the fact that they have no website and a competitor with one is already winning the searches for "${lead.category} in ${lead.city}". Make it feel urgent, not preachy.
 
 Sender: ${SENDER_NAME}
 Return JSON: {"subject": "...", "body": "..."}`;
@@ -134,31 +152,73 @@ Return JSON: {"subject": "...", "body": "..."}`;
     if (!websiteAudit.hasOgTags) techDetails.push('no social sharing preview (Open Graph)');
     if (websiteAudit.imagesWithoutAlt > 0) techDetails.push(`${websiteAudit.imagesWithoutAlt} images missing alt text`);
     if (websiteAudit.crawlBlocked) techDetails.push('site blocks search engine crawlers');
-    if (websiteAudit.psiSkipped) techDetails.push('page speed could not be measured (possible server issues)');
+    if (websiteAudit.psiSkipped) techDetails.push('page speed could not be measured');
   }
 
   const visualFindings = websiteAudit?.visualIssues ?? [];
 
+  // Pick the single most impactful issue to lead with
+  const topIssue = perfScore !== undefined && perfScore > 0 && perfScore < 50
+    ? `mobile performance score of ${perfScore}/100 (half their visitors leave before the page loads)`
+    : allIssues[0] || pitchPoints[0] || 'GBP profile missing key information';
+
   return `Write a cold email to the owner of "${lead.businessName}", a ${lead.category} in ${lead.city}${lead.country ? ', ' + lead.country : ''}.
 
-Website: ${lead.website}
-Google rating: ${stars}
-GBP audit score: ${lead.gbpAuditScore}/100
-${allIssues.length > 0 ? `Critical issues found:\n${allIssues.map(i => '- ' + i).join('\n')}` : 'No critical issues detected by our audit.'}
-${allOpportunities.length > 0 ? `\nImprovement opportunities:\n${allOpportunities.map(o => '- ' + o).join('\n')}` : ''}
-${visualFindings.length > 0 ? `\nVisual design problems (from screenshot analysis):\n${visualFindings.map(v => '- ' + v).join('\n')}` : ''}
-${techDetails.length > 0 ? `\nAdditional technical findings: ${techDetails.join(', ')}` : ''}
-${perfScore !== undefined && perfScore > 0 ? `\nWebsite mobile performance: ${perfScore}/100` : ''}
-${pitchPoints.length > 0 ? `\nKey pitch angles:\n${pitchPoints.map(p => '- ' + p).join('\n')}` : ''}
+KEY FACTS TO USE:
+- Website: ${lead.website}
+- Google rating: ${stars}
+- GBP audit score: ${lead.gbpAuditScore}/100
+- TOP ISSUE TO LEAD WITH: ${topIssue}
+${allIssues.length > 0 ? `- Other issues found:\n${allIssues.map(i => '  * ' + i).join('\n')}` : ''}
+${allOpportunities.length > 0 ? `- Quick wins available:\n${allOpportunities.map(o => '  * ' + o).join('\n')}` : ''}
+${visualFindings.length > 0 ? `- Visual design problems:\n${visualFindings.map(v => '  * ' + v).join('\n')}` : ''}
+${techDetails.length > 0 ? `- Technical findings: ${techDetails.join(', ')}` : ''}
+${pitchPoints.length > 0 ? `- Pitch angles:\n${pitchPoints.map(p => '  * ' + p).join('\n')}` : ''}
 
-I'm a web designer. Write an email that:
-1. Mentions ONE specific issue I noticed (most impactful)
-2. Explains business impact in one sentence (lost leads/bookings)
-3. Offers a free 3-point growth plan tailored to them
-4. Ends with one yes/no CTA: "Want me to send it?"
-5. Keeps body between 80 and 140 words
+INSTRUCTION: Lead with the TOP ISSUE exactly — name it specifically. Don't soften it. Make the business impact crystal clear in one sentence.
 
 Sender: ${SENDER_NAME}
 Return JSON: {"subject": "...", "body": "..."}`;
 }
 
+// ── WhatsApp prompt builder ───────────────────────────────────────────────────
+function buildWhatsAppPrompt(lead: Lead, websiteAudit?: AuditData): string {
+  const stars = lead.rating > 0 ? `${lead.rating}/5 stars (${lead.reviews} reviews)` : 'no Google rating';
+
+  if (!lead.hasRealWebsite) {
+    return `Write a WhatsApp message to the owner of "${lead.businessName}", a ${lead.category} in ${lead.city}${lead.country ? ', ' + lead.country : ''}.
+
+FACTS:
+- No website — only a Google listing or social page
+- ${stars}
+${lead.gbpPitchPoints && lead.gbpPitchPoints !== 'No major issues found' ? `- Issues: ${lead.gbpPitchPoints}` : ''}
+
+Lead with: they have no website so every search for "${lead.category} in ${lead.city}" sends customers to a competitor who does.
+50-70 words. Return plain text only.`;
+  }
+
+  const issues = [
+    ...(lead.gbpIssues && lead.gbpIssues !== 'N/A'
+      ? lead.gbpIssues.replace(/[❌⚠️✅]/g, '').split(' | ').map(s => s.trim()).filter(Boolean)
+      : []),
+    ...(websiteAudit?.issues || []),
+  ].slice(0, 3);
+
+  const perfScore = websiteAudit?.performance;
+
+  const topFinding = perfScore !== undefined && perfScore > 0 && perfScore < 55
+    ? `mobile speed score: ${perfScore}/100`
+    : issues[0] || (lead.gbpPitchPoints && lead.gbpPitchPoints !== 'No major issues found' ? lead.gbpPitchPoints.split(' | ')[0] : '');
+
+  return `Write a WhatsApp message to the owner of "${lead.businessName}", a ${lead.category} in ${lead.city}${lead.country ? ', ' + lead.country : ''}.
+
+FACTS:
+- Website: ${lead.website}
+- ${stars}
+- GBP score: ${lead.gbpAuditScore}/100
+${topFinding ? `- TOP ISSUE: ${topFinding}` : ''}
+${issues.length > 1 ? `- Other issues: ${issues.slice(1).join(', ')}` : ''}
+
+Lead with the TOP ISSUE — name it specifically and say what it's costing them.
+50-70 words. Return plain text only.`;
+}
