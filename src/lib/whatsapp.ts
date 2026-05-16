@@ -33,5 +33,10 @@ export function buildWhatsAppMessage(businessName: string, emailBody: string): s
     .filter(Boolean)
     .slice(0, 3)
     .join(' ');
-  return `Hi ${businessName}, ${firstLines} Happy to share a free website concept if you're interested.`;
+
+  const escapedName = businessName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const repeatedGreeting = new RegExp(`^\\s*hi\\s+${escapedName}\\s*,?\\s*`, 'i');
+  const sanitized = firstLines.replace(repeatedGreeting, '').trim();
+
+  return `Hi ${businessName}, I work with local businesses to increase bookings and qualified leads. ${sanitized} If you'd like, I can send a free 3-point growth plan for your business.`;
 }

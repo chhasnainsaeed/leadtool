@@ -5,11 +5,18 @@ import { Lead, AuditData, EmailContent } from '@/types';
 const SENDER_NAME = process.env.SENDER_NAME || 'Your Name';
 const SENDER_EMAIL = process.env.SMTP_USER || '';
 const AI_PROVIDER = (process.env.AI_PROVIDER || 'gemini').toLowerCase();
+const GEMINI_TEXT_MODEL = process.env.GEMINI_TEXT_MODEL || 'gemini-3-pro-preview';
 
-const SYSTEM_PROMPT = `You are a professional web designer writing concise, human cold emails to local business owners.
-Goal: get a reply — not close a sale. Under 200 words total.
-Write plain text only (no markdown, no bullet lists). Sound like a real person, not a template.
-Never mention pricing or packages. One clear call to action at the end.
+const SYSTEM_PROMPT = `You are an elite outbound copywriter for a web growth agency.
+Goal: get a reply from local business owners using concise, high-conversion outreach.
+Write plain text only (no markdown, no bullet lists), 80-140 words max.
+Use this flow:
+1) Personalized hook with a specific observation
+2) Business impact in plain words (lost leads/bookings/revenue)
+3) Low-friction value offer (free 3-point growth plan)
+4) One yes/no CTA
+Tone: confident, professional, human, never spammy.
+Never mention pricing or packages.
 Return JSON with exactly two keys: "subject" and "body".`;
 
 // ── Gemini ──────────────────────────────────────────────────────────────────
@@ -19,7 +26,7 @@ async function generateWithGemini(prompt: string): Promise<string> {
 
   const genAI = new GoogleGenerativeAI(apiKey);
   const model = genAI.getGenerativeModel({
-    model: 'gemini-2.5-pro',
+    model: GEMINI_TEXT_MODEL,
     systemInstruction: SYSTEM_PROMPT,
     generationConfig: {
       maxOutputTokens: 2048,
@@ -81,7 +88,7 @@ export async function generateEmail(lead: Lead, websiteAudit?: AuditData): Promi
 }
 
 export function getActiveProvider(): string {
-  return AI_PROVIDER === 'claude' ? 'Claude (Anthropic)' : 'Gemini 2.0 Flash (Google)';
+  return AI_PROVIDER === 'claude' ? 'Claude (Anthropic)' : `Gemini (${GEMINI_TEXT_MODEL})`;
 }
 
 // ── Prompt builder ────────────────────────────────────────────────────────────
@@ -98,10 +105,11 @@ ${lead.description && lead.description !== 'N/A' ? `Business description: ${lead
 ${lead.gbpPitchPoints && lead.gbpPitchPoints !== 'No major issues found' ? `Pitch angles: ${lead.gbpPitchPoints}` : ''}
 
 I build websites for local ${lead.category}s. Write an email that:
-1. Mentions their ${lead.rating > 0 ? lead.rating + '-star reputation' : 'business'} specifically
-2. Points out that people searching online for ${lead.category}s in ${lead.city} can't find them
-3. Offers to show them a FREE website concept — no commitment
-4. Sounds personal, not like a mass email
+1. Opens with a direct personalized hook
+2. Explains impact: missed local leads and bookings
+3. Offers a free 3-point growth plan tailored to their business
+4. Ends with a yes/no CTA: "Want me to send it?"
+5. Keeps body between 80 and 140 words
 
 Sender: ${SENDER_NAME}
 Return JSON: {"subject": "...", "body": "..."}`;
@@ -144,11 +152,13 @@ ${perfScore !== undefined && perfScore > 0 ? `\nWebsite mobile performance: ${pe
 ${pitchPoints.length > 0 ? `\nKey pitch angles:\n${pitchPoints.map(p => '- ' + p).join('\n')}` : ''}
 
 I'm a web designer. Write an email that:
-1. Mentions ONE specific issue I noticed (pick the most impactful and specific one)
-2. Briefly explains the business impact (losing customers to competitors)
-3. Offers a free 15-minute website review call
-4. Feels personal — like I specifically looked at their business
+1. Mentions ONE specific issue I noticed (most impactful)
+2. Explains business impact in one sentence (lost leads/bookings)
+3. Offers a free 3-point growth plan tailored to them
+4. Ends with one yes/no CTA: "Want me to send it?"
+5. Keeps body between 80 and 140 words
 
 Sender: ${SENDER_NAME}
 Return JSON: {"subject": "...", "body": "..."}`;
 }
+
