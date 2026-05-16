@@ -31,7 +31,7 @@ export async function POST(req: NextRequest) {
 
     const baseText = lead.emailContent?.body || buildFallbackOutreachMessage(lead);
     const message = buildWhatsAppMessage(lead.businessName, baseText);
-    const waLink = `whatsapp://send?phone=${e164ToWaPhone(e164)}&text=${encodeURIComponent(message)}`;
+    const waLink = `https://wa.me/${e164ToWaPhone(e164)}?text=${encodeURIComponent(message)}`;
 
     return NextResponse.json({
       ok: true,
