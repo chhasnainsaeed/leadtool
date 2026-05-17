@@ -18,7 +18,7 @@ export async function POST(req: NextRequest) {
     await sendEmail({ to, subject, body });
 
     if (leadId) {
-      updateLead(leadId, {
+      await updateLead(leadId, {
         email: to,
         emailSent: true,
         emailSentAt: new Date().toISOString(),

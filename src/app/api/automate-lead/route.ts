@@ -8,38 +8,65 @@ import { buildFallbackOutreachMessage, buildSocialOutreachMessage, detectSocialP
 
 export async function POST(req: NextRequest) {
   try {
-    const { leadId, recipientEmail } = (await req.json()) as {
+    const { leadId, recipientEmail, force } = (await req.json()) as {
       leadId: string;
       recipientEmail?: string;
+      force?: boolean;
     };
 
     if (!leadId) {
       return NextResponse.json({ error: 'leadId is required' }, { status: 400 });
     }
 
-    const lead = getLeadById(leadId);
+    const lead = await getLeadById(leadId);
     if (!lead) {
       return NextResponse.json({ error: 'Lead not found' }, { status: 404 });
     }
 
+    const alreadyProcessed = lead.status === 'sent'
+      || !!lead.emailSent
+      || !!lead.whatsAppMessage
+      || !!lead.emailContent;
+
+    if (alreadyProcessed && !force) {
+      return NextResponse.json({
+        success: true,
+        skipped: true,
+        reason: 'Lead already processed',
+        leadId,
+        businessName: lead.businessName,
+        status: lead.status,
+        alreadyProcessedSignals: {
+          status: lead.status,
+          emailSent: !!lead.emailSent,
+          hasEmailContent: !!lead.emailContent,
+          hasWhatsAppMessage: !!lead.whatsAppMessage,
+        },
+        hint: 'Pass force=true to reprocess this lead.',
+      });
+    }
+
     let updatedLead = lead;
     const result: Record<string, unknown> = { leadId, businessName: lead.businessName };
+    if (alreadyProcessed && force) {
+      result.reprocess = { forced: true, previousStatus: lead.status };
+    }
 
     const socialPlatform = detectSocialPlatform(lead.website || lead.socialMedia);
     if (lead.hasRealWebsite && lead.website) {
       const auditData = await auditWebsite(lead.website);
-      const leadAfterAudit = updateLead(leadId, { auditData, status: 'audited' });
+      const leadAfterAudit = await updateLead(leadId, { auditData, status: 'audited' });
       if (leadAfterAudit) updatedLead = leadAfterAudit;
       result.audit = { ok: true, performance: auditData.performance, issues: auditData.issues.length };
     } else if (socialPlatform) {
       const socialMessage = buildSocialOutreachMessage(lead, socialPlatform);
-      const leadAfterSocial = updateLead(leadId, { socialPlatform, socialMessage, status: 'audited' });
+      const leadAfterSocial = await updateLead(leadId, { socialPlatform, socialMessage, status: 'audited' });
       if (leadAfterSocial) updatedLead = leadAfterSocial;
       result.audit = { ok: false, skipped: true, reason: 'Social profile lead', socialPlatform };
     } else {
       result.audit = { ok: false, skipped: true, reason: 'No real website' };
       if (updatedLead.status === 'new') {
-        const leadAfterState = updateLead(leadId, { status: 'audited' });
+        const leadAfterState = await updateLead(leadId, { status: 'audited' });
         if (leadAfterState) updatedLead = leadAfterState;
       }
     }
@@ -50,7 +77,7 @@ export async function POST(req: NextRequest) {
       const emailContent = await generateEmail(updatedLead, updatedLead.auditData);
       emailBodyForMessaging = emailContent.body;
       emailSubjectForSending = emailContent.subject;
-      const leadAfterEmail = updateLead(leadId, { emailContent, status: 'email_generated' });
+      const leadAfterEmail = await updateLead(leadId, { emailContent, status: 'email_generated' });
       if (leadAfterEmail) updatedLead = leadAfterEmail;
       result.emailGeneration = { ok: true, subject: emailContent.subject };
     } else {
@@ -63,7 +90,7 @@ export async function POST(req: NextRequest) {
         subject: emailSubjectForSending,
         body: emailBodyForMessaging,
       });
-      const leadAfterSend = updateLead(leadId, {
+      const leadAfterSend = await updateLead(leadId, {
         emailSent: true,
         emailSentAt: new Date().toISOString(),
         status: 'sent',
@@ -86,7 +113,7 @@ export async function POST(req: NextRequest) {
           updatedLead.socialMessage || emailBodyForMessaging,
         );
       }
-      const leadAfterWa = updateLead(leadId, {
+      const leadAfterWa = await updateLead(leadId, {
         hasWhatsApp: waAvailable,
         whatsAppMessage: waMessage,
       });

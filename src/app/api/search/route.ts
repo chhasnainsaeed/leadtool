@@ -13,7 +13,7 @@ export async function POST(req: NextRequest) {
     }
 
     const leads = await searchGoogleBusiness(businessQuery, city, country);
-    saveLeads(leads);
+    await saveLeads(leads);
 
     return NextResponse.json({ leads, count: leads.length });
   } catch (err: unknown) {

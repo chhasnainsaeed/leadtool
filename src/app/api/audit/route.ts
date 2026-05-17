@@ -11,7 +11,7 @@ export async function POST(req: NextRequest) {
     const auditData = await auditWebsite(url);
 
     if (leadId) {
-      updateLead(leadId, { auditData, status: 'audited' });
+      await updateLead(leadId, { auditData, status: 'audited' });
     }
 
     return NextResponse.json({ auditData });

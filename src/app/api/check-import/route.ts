@@ -18,17 +18,17 @@ export async function GET() {
 
   if (!session) {
     // No active session — still check for any recent GBP CSV (last 60s)
-    return checkForRecentFile(Date.now() - 60_000, null);
+    return await checkForRecentFile(Date.now() - 60_000, null);
   }
 
   if (session.importedFile) {
     return NextResponse.json({ status: 'already_imported', file: session.importedFile });
   }
 
-  return checkForRecentFile(session.startedAt, session);
+  return await checkForRecentFile(session.startedAt, session);
 }
 
-function checkForRecentFile(since: number, session: ReturnType<typeof scrapeSession.get>) {
+async function checkForRecentFile(since: number, session: ReturnType<typeof scrapeSession.get>) {
   let files: fs.Dirent[];
   try {
     files = fs.readdirSync(DOWNLOADS_DIR, { withFileTypes: true });
@@ -66,7 +66,7 @@ function checkForRecentFile(since: number, session: ReturnType<typeof scrapeSess
       return NextResponse.json({ status: 'waiting', hint: 'CSV found but empty or unrecognized format' });
     }
 
-    saveLeads(leads);
+    await saveLeads(leads);
     if (session) scrapeSession.markImported(newest.name);
 
     return NextResponse.json({ status: 'imported', file: newest.name, count: leads.length, leads });

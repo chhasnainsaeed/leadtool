@@ -9,7 +9,7 @@ export async function POST(req: NextRequest) {
 
     let lead: Lead | undefined;
     if (leadId) {
-      lead = getLeadById(leadId);
+      lead = await getLeadById(leadId);
       if (!lead) return NextResponse.json({ error: 'Lead not found' }, { status: 404 });
     } else if (leadOverride) {
       lead = leadOverride;
@@ -23,7 +23,7 @@ export async function POST(req: NextRequest) {
     const emailContent = await generateEmail(lead, lead.auditData);
 
     if (leadId) {
-      updateLead(leadId, { emailContent, status: 'email_generated' });
+      await updateLead(leadId, { emailContent, status: 'email_generated' });
     }
 
     return NextResponse.json({ emailContent });

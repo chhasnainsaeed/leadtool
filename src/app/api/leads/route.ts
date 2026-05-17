@@ -2,14 +2,14 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getAllLeads, updateLead, deleteLead, clearAll } from '@/lib/storage';
 
 export async function GET() {
-  const leads = getAllLeads();
+  const leads = await getAllLeads();
   return NextResponse.json({ leads });
 }
 
 export async function PATCH(req: NextRequest) {
   try {
     const { id, updates } = await req.json() as { id: string; updates: Record<string, unknown> };
-    const updated = updateLead(id, updates);
+    const updated = await updateLead(id, updates);
     if (!updated) return NextResponse.json({ error: 'Lead not found' }, { status: 404 });
     return NextResponse.json({ lead: updated });
   } catch (err: unknown) {
@@ -25,12 +25,12 @@ export async function DELETE(req: NextRequest) {
     const all = searchParams.get('all');
 
     if (all === 'true') {
-      clearAll();
+      await clearAll();
       return NextResponse.json({ success: true });
     }
 
     if (!id) return NextResponse.json({ error: 'id is required' }, { status: 400 });
-    const deleted = deleteLead(id);
+    const deleted = await deleteLead(id);
     return NextResponse.json({ success: deleted });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : 'Delete failed';

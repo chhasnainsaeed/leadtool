@@ -199,9 +199,9 @@ export default function LeadDetailPanel({
                   </ul>
                 </div>
               )}
-              {pitchPoints.length > 0 && (
+              {lead.status !== 'new' && pitchPoints.length > 0 && (
                 <div>
-                  <div className="text-xs font-semibold text-slate-500 mb-1.5">Pitch angles</div>
+                  <div className="text-xs font-semibold text-slate-500 mb-1.5">Imported GBP Suggestions</div>
                   <ul className="space-y-1">
                     {pitchPoints.map((p, i) => (
                       <li key={i} className="text-xs text-blue-700 bg-blue-50 px-2 py-1 rounded">→ {p}</li>
