@@ -5,7 +5,10 @@
       "Bash(Get-Content \"C:\\\\Users\\\\dijis\\\\Downloads\\\\gbp_leads_2026-05-13T03-58.csv\")",
       "Bash(Select-Object -First 5)",
       "Read(//c/Users/dijis/Downloads/**)",
-      "Read(//c/Users/dijis/OneDrive/Desktop/gbp-scraper/**)"
+      "Read(//c/Users/dijis/OneDrive/Desktop/gbp-scraper/**)",
+      "Bash(curl -s -o /tmp/test_response.txt -w \"%{http_code} %{content_type}\" -X POST http://localhost:3001/api/import-csv -F \"file=@/dev/null;filename=test.csv\")",
+      "Bash(kill %1)",
+      "Read(//tmp/**)"
     ]
   }
 }

@@ -1,7 +1,8 @@
 import { Lead } from '@/types';
+import { buildWhatsAppFallbackMessage, buildWhatsAppInput } from '@/lib/whatsappOutreach';
 
 export function buildFallbackOutreachMessage(lead: Lead): string {
-  return `Hi ${lead.businessName}, I help local businesses get more qualified leads through conversion-focused website improvements. If you're open, I can send a free 3-point plan specific to your business with quick wins you can apply immediately.`;
+  return buildWhatsAppFallbackMessage(buildWhatsAppInput(lead));
 }
 
 export function buildSocialOutreachMessage(lead: Lead, platform: 'facebook' | 'instagram'): string {

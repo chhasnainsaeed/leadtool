@@ -7,7 +7,9 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "smtp:check": "node scripts/smtp-check.mjs"
+    "smtp:check": "node scripts/smtp-check.mjs",
+    "test:whatsapp-validation": "node --import tsx scripts/test-whatsapp-validation.ts",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.95.2",
@@ -33,6 +35,7 @@
     "eslint": "^9",
     "eslint-config-next": "16.2.6",
     "tailwindcss": "^4",
+    "tsx": "^4.20.6",
     "typescript": "^5"
   }
 }

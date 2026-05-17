@@ -1,6 +1,13 @@
 # LeadTool
 
-LeadTool is a Next.js 16 app for finding local business leads, generating outreach emails with AI, and sending emails through SMTP.
+LeadTool is a Next.js 16 app for finding local business leads, generating outreach emails and WhatsApp outreach messages with AI, and sending emails through SMTP.
+
+## WhatsApp Message Generation
+
+- Uses structured lead + audit input (business type, website state, weak points, and message angle).
+- Enforces local-style constraints: starts with `Salam`, includes business name, includes `hasnainsaeed.net`, and stays under 90 words.
+- Applies one automatic regeneration if output violates banned phrases or formatting rules.
+- Falls back to a deterministic template if AI generation fails validation twice or provider fails.
 
 ## Requirements
 
@@ -21,6 +28,8 @@ npm install
 ```env
 AI_PROVIDER=gemini
 GEMINI_API_KEY=...
+GEMINI_TEXT_MODEL=gemini-3.1-flash
+GEMINI_VISUAL_MODEL=gemini-3.1-flash
 ANTHROPIC_API_KEY=...
 SERPAPI_KEY=...
 
