@@ -60,7 +60,7 @@ export interface WhatsAppMessageInput {
   sender_website: 'hasnainsaeed.net';
   rules: {
     must_start_with: 'Salam';
-    max_words: 90;
+    max_words: number;
     banned_phrases: string[];
     must_include_sender_website: 'hasnainsaeed.net';
   };
@@ -130,7 +130,7 @@ export function buildWhatsAppInput(lead: Lead, websiteAudit?: AuditData): WhatsA
     sender_website: 'hasnainsaeed.net',
     rules: {
       must_start_with: 'Salam',
-      max_words: 90,
+      max_words: lead.hasRealWebsite ? 240 : 90,
       banned_phrases: BANNED_PHRASES,
       must_include_sender_website: 'hasnainsaeed.net',
     },
@@ -138,6 +138,11 @@ export function buildWhatsAppInput(lead: Lead, websiteAudit?: AuditData): WhatsA
 }
 
 export function buildWhatsAppFallbackMessage(input: WhatsAppMessageInput): string {
+  if (input.has_website) {
+    const topIssue = input.website_audit?.issues?.[0] || input.gbp_issues?.[0] || 'there are a few website friction points';
+    const topOpportunity = input.website_audit?.opportunities?.[0] || 'clearer contact and booking flow';
+    return `Salam ${input.business_name}, I reviewed your website and noticed ${topIssue}. For ${input.business_type}, even small fixes can improve trust and booking decisions. One immediate opportunity is ${topOpportunity}. If you want, I can share a quick practical breakdown for your site. hasnainsaeed.net`;
+  }
   return `Salam ${input.business_name}, I checked your online presence and noticed there may be room to make your website/contact path clearer for customers. I can share a few simple improvement ideas. hasnainsaeed.net`;
 }
 
@@ -170,11 +175,25 @@ export function hasConcreteAnchor(message: string, input: WhatsAppMessageInput):
   return serviceMention || gbpIssueMention || auditIssueMention || auditOppMention || observationMention;
 }
 
+export function countConcreteAnchors(message: string, input: WhatsAppMessageInput): number {
+  const lower = message.toLowerCase();
+  let count = 0;
+  if (input.services.some(s => s && lower.includes(s.toLowerCase()))) count += 1;
+  if (input.gbp_issues.some(i => i && lower.includes(i.toLowerCase()))) count += 1;
+  if ((input.website_audit?.issues || []).some(i => i && lower.includes(i.toLowerCase()))) count += 1;
+  if ((input.website_audit?.opportunities || []).some(o => o && lower.includes(o.toLowerCase()))) count += 1;
+  if ((input.available_facts || []).some(f => {
+    const val = String(f).split(':').slice(1).join(':').trim().toLowerCase();
+    return val.length > 3 && lower.includes(val);
+  })) count += 1;
+  return count;
+}
+
 export function validateWhatsAppMessage(message: string, input: WhatsAppMessageInput): { valid: boolean; reasons: string[] } {
   const reasons: string[] = [];
   const lower = message.toLowerCase();
   const wordCount = message.trim().split(/\s+/).filter(Boolean).length;
-  if (wordCount > 90) reasons.push('Message exceeds 90 words');
+  if (wordCount > input.rules.max_words) reasons.push(`Message exceeds ${input.rules.max_words} words`);
   if (!lower.includes('salam')) reasons.push('Missing Salam');
   if (!lower.includes(input.business_name.toLowerCase())) reasons.push('Missing business name');
   if (!lower.includes('hasnainsaeed.net')) reasons.push('Missing sender website');
@@ -185,6 +204,9 @@ export function validateWhatsAppMessage(message: string, input: WhatsAppMessageI
   }
 
   if (!hasConcreteAnchor(message, input)) reasons.push('Too generic: no factual issue or service context mentioned');
+  if (input.has_website && countConcreteAnchors(message, input) < 2) {
+    reasons.push('Website lead message must include at least 2 concrete audit/business anchors');
+  }
 
   return { valid: reasons.length === 0, reasons };
 }

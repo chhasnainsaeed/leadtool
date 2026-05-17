@@ -11,6 +11,9 @@ export interface BusinessType {
 }
 
 export interface AuditData {
+  auditScore?: number;
+  grade?: string;
+  summary?: string;
   performance: number;
   accessibility: number;
   seo: number;
@@ -18,20 +21,22 @@ export interface AuditData {
   fcp: string;
   lcp: string;
   cls: string;
-  hasSSL: boolean;
-  hasTitle: boolean;
+  hasSSL: boolean | null;
+  hasTitle: boolean | null;
   titleText: string;
-  hasMetaDescription: boolean;
+  hasMetaDescription: boolean | null;
   metaDescription: string;
-  hasH1: boolean;
+  hasH1: boolean | null;
   h1Text: string;
-  hasMobileViewport: boolean;
-  hasSchema: boolean;
-  hasOgTags: boolean;
-  hasAnalytics: boolean;
+  hasMobileViewport: boolean | null;
+  hasSchema: boolean | null;
+  hasOgTags: boolean | null;
+  hasAnalytics: boolean | null;
   imagesWithoutAlt: number;
   issues: string[];
   opportunities: string[];
+  quickWins?: string[];
+  strengths?: string[];
   visualIssues: string[];
   screenshotDataUrl?: string;
   crawlBlocked: boolean;

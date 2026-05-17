@@ -270,13 +270,24 @@ export default function Home() {
   const handleProcessLead = async (lead: Lead) => {
     setLoadingProcess(lead.id);
     try {
+      const shouldForce = lead.status !== 'new';
       const res = await fetch('/api/automate-lead', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ leadId: lead.id, recipientEmail: lead.email || undefined, sendWhatsapp: false }),
+        body: JSON.stringify({
+          leadId: lead.id,
+          recipientEmail: lead.email || undefined,
+          sendWhatsapp: false,
+          force: shouldForce,
+        }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Process failed');
+      if (data?.skipped) {
+        addToast(`${lead.businessName}: ${data.reason || 'Already processed'}`, 'info');
+      } else if (data?.result?.reprocess?.forced) {
+        addToast(`${lead.businessName}: reprocessed successfully`, 'success');
+      }
       const latest = await fetch('/api/leads').then(r => r.json());
       setLeads(latest.leads || []);
     } catch (err: unknown) {

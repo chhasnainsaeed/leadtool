@@ -34,7 +34,6 @@ Rules:
 - Always explain why a website matters for this business type.
 - Always include sender portfolio website: hasnainsaeed.net
 - Always end with one soft question.
-- Maximum 90 words.
 - First decide the best outreach angle yourself from the provided lead facts (do not rely on fixed templates).
 - Use one specific weak point and one relevant business-context detail to keep the message grounded.
 - Output only the final WhatsApp message.`;
@@ -156,5 +155,11 @@ Return JSON: {"subject": "...", "body": "..."}`;
 }
 
 function buildWhatsAppPrompt(input: ReturnType<typeof buildWhatsAppInput>): string {
-  return `Use this structured lead and audit data:\n${JSON.stringify(input, null, 2)}\n\nTask:\n1) Analyze the business type and available facts yourself.\n2) Decide the best outreach angle yourself.\n3) Write one WhatsApp outreach message following all system rules.\n\nImportant:\n- Do not invent facts.\n- If data is limited, infer only general business/customer-journey needs from the category, and phrase them carefully.\n- Mention at least one factual detail from provided data (issue, metric, service, or profile status).\n\nStyle constraints:\n- Keep it human, local, and respectful.\n- Avoid buzzwords and generic agency lines.\n- Do not mention that this is AI-generated.\n\nOutput only the final WhatsApp message text.`;
+  const formatRule = input.has_website
+    ? `This lead has a website. Write one detailed single-paragraph WhatsApp message up to ${input.rules.max_words} words.`
+    : `This lead has no real website. Keep it concise up to ${input.rules.max_words} words.`;
+  const depthRule = input.has_website
+    ? '- Include at least two concrete anchors from the provided facts (for example: one technical issue + one business/GBP context).\n- Mention one clear impact (trust, bookings, conversions, or discoverability) tied to those facts.\n- Include one practical improvement direction.'
+    : '- Mention at least one concrete factual anchor from provided data.';
+  return `Use this structured lead and audit data:\n${JSON.stringify(input, null, 2)}\n\nTask:\n1) Analyze the business type and available facts yourself.\n2) Decide the best outreach angle yourself.\n3) Write one WhatsApp outreach message following all system rules.\n\nFormat rule:\n- ${formatRule}\n\nDepth rule:\n${depthRule}\n\nImportant:\n- Do not invent facts.\n- If data is limited, infer only general business/customer-journey needs from the category, and phrase them carefully.\n\nStyle constraints:\n- Keep it human, local, and respectful.\n- Avoid buzzwords and generic agency lines.\n- Do not mention that this is AI-generated.\n\nOutput only the final WhatsApp message text.`;
 }

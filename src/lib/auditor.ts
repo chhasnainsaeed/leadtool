@@ -55,23 +55,23 @@ interface PSIResult {
 // ── SEO crawl types ───────────────────────────────────────────────────────────
 
 interface SEOChecks {
-  hasSSL: boolean;
-  hasTitle: boolean;
+  hasSSL: boolean | null;
+  hasTitle: boolean | null;
   titleText: string;
   titleTooShort: boolean;
   titleTooLong: boolean;
-  hasMetaDescription: boolean;
+  hasMetaDescription: boolean | null;
   metaDescription: string;
   metaDescTooShort: boolean;
   metaDescTooLong: boolean;
-  hasH1: boolean;
+  hasH1: boolean | null;
   h1Text: string;
   multipleH1: boolean;
-  hasMobileViewport: boolean;
-  hasCanonical: boolean;
-  hasOgTags: boolean;
-  hasSchema: boolean;
-  hasAnalytics: boolean;
+  hasMobileViewport: boolean | null;
+  hasCanonical: boolean | null;
+  hasOgTags: boolean | null;
+  hasSchema: boolean | null;
+  hasAnalytics: boolean | null;
   imagesWithoutAlt: number;
   totalImages: number;
   crawlBlocked: boolean;
@@ -104,7 +104,7 @@ function extractScreenshot(psi: PSIResult | null): string | null {
 // ── PageSpeed Insights ────────────────────────────────────────────────────────
 
 async function runPageSpeed(url: string): Promise<PSIResult | null> {
-  const apiKey = process.env.GEMINI_API_KEY;
+  const apiKey = process.env.PSI_API_KEY || process.env.GEMINI_API_KEY;
   const endpoint =
     `https://www.googleapis.com/pagespeedonline/v5/runPagespeed` +
     `?url=${encodeURIComponent(url)}&strategy=mobile` +
@@ -155,11 +155,11 @@ function runSEOChecks(url: string, html: string, blocked: boolean): SEOChecks {
   if (blocked || !html) {
     return {
       hasSSL: url.startsWith('https://'),
-      hasTitle: false, titleText: '', titleTooShort: false, titleTooLong: false,
-      hasMetaDescription: false, metaDescription: '', metaDescTooShort: false, metaDescTooLong: false,
-      hasH1: false, h1Text: '', multipleH1: false,
-      hasMobileViewport: false, hasCanonical: false,
-      hasOgTags: false, hasSchema: false, hasAnalytics: false,
+      hasTitle: null, titleText: '', titleTooShort: false, titleTooLong: false,
+      hasMetaDescription: null, metaDescription: '', metaDescTooShort: false, metaDescTooLong: false,
+      hasH1: null, h1Text: '', multipleH1: false,
+      hasMobileViewport: null, hasCanonical: null,
+      hasOgTags: null, hasSchema: null, hasAnalytics: null,
       imagesWithoutAlt: 0, totalImages: 0,
       crawlBlocked: true,
     };
@@ -228,6 +228,16 @@ interface VisualResult {
   opportunities: string[];
 }
 
+interface AuditNarrative {
+  score?: number;
+  grade?: string;
+  summary?: string;
+  issues: string[];
+  opportunities: string[];
+  quick_wins?: string[];
+  strengths?: string[];
+}
+
 async function runVisualAudit(screenshotDataUrl: string): Promise<VisualResult> {
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) return { issues: [], opportunities: [] };
@@ -289,6 +299,58 @@ Max 3 issues, max 2 opportunities. Be specific to what you actually see. If the 
   }
 }
 
+async function runAuditNarrativeAI(input: {
+  url: string;
+  psiSkipped: boolean;
+  crawlBlocked: boolean;
+  performance: number;
+  accessibility: number;
+  seo: number;
+  bestPractices: number;
+  rawIssues: string[];
+  rawOpportunities: string[];
+  visualIssues: string[];
+  checks: {
+    hasSSL: boolean | null;
+    hasTitle: boolean | null;
+    hasMetaDescription: boolean | null;
+    hasH1: boolean | null;
+    hasMobileViewport: boolean | null;
+    hasSchema: boolean | null;
+    hasOgTags: boolean | null;
+    hasAnalytics: boolean | null;
+  };
+}): Promise<AuditNarrative | null> {
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) return null;
+  try {
+    const genAI = new GoogleGenerativeAI(apiKey);
+    const model = genAI.getGenerativeModel({
+      model: process.env.GEMINI_TEXT_MODEL || 'gemini-3.1-flash-lite-preview',
+      generationConfig: { maxOutputTokens: 700, temperature: 0.35 },
+      systemInstruction:
+        'You are a senior web audit analyst. Use only provided facts. Never invent missing findings. Return strict JSON only.',
+    });
+
+    const prompt = `Given this website audit facts object:\n${JSON.stringify(input, null, 2)}\n\nTask:\n- Create an overall audit score (0-100), grade (A-F), and short summary.\n- Create up to 6 actionable issues and up to 6 actionable opportunities.\n- Create up to 5 quick wins and up to 5 strengths.\n- If psiSkipped or crawlBlocked is true, avoid hard-claiming missing technical tags unless explicitly false.\n- Prefer high-impact, specific findings.\n- Keep each line concise and plain English.\nReturn JSON exactly: {"score":0,"grade":"C","summary":"...","issues":["..."],"opportunities":["..."],"quick_wins":["..."],"strengths":["..."]}`;
+    const result = await model.generateContent(prompt);
+    const text = result.response.text().replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '').trim();
+    const match = text.match(/\{[\s\S]*\}/);
+    const parsed = JSON.parse(match ? match[0] : text) as AuditNarrative;
+    return {
+      score: typeof parsed.score === 'number' ? Math.max(0, Math.min(100, Math.round(parsed.score))) : undefined,
+      grade: typeof parsed.grade === 'string' ? parsed.grade : undefined,
+      summary: typeof parsed.summary === 'string' ? parsed.summary : undefined,
+      issues: Array.isArray(parsed.issues) ? parsed.issues.slice(0, 6) : [],
+      opportunities: Array.isArray(parsed.opportunities) ? parsed.opportunities.slice(0, 6) : [],
+      quick_wins: Array.isArray(parsed.quick_wins) ? parsed.quick_wins.slice(0, 5) : [],
+      strengths: Array.isArray(parsed.strengths) ? parsed.strengths.slice(0, 5) : [],
+    };
+  } catch {
+    return null;
+  }
+}
+
 // ── Main export ───────────────────────────────────────────────────────────────
 
 export async function auditWebsite(url: string): Promise<AuditData> {
@@ -325,7 +387,7 @@ export async function auditWebsite(url: string): Promise<AuditData> {
   const opportunities: string[] = [];
 
   // ── SSL ───────────────────────────────────────────────────────────────────────
-  if (!seo.hasSSL) issues.push('No SSL certificate — site runs on HTTP (not secure)');
+  if (seo.hasSSL === false) issues.push('No SSL certificate — site runs on HTTP (not secure)');
 
   // ── Crawl notice ──────────────────────────────────────────────────────────────
   if (seo.crawlBlocked) {
@@ -359,22 +421,22 @@ export async function auditWebsite(url: string): Promise<AuditData> {
 
   // ── On-page SEO ───────────────────────────────────────────────────────────────
   if (!seo.crawlBlocked) {
-    if (!seo.hasTitle)              issues.push('Missing <title> tag — critical for Google rankings');
+    if (seo.hasTitle === false)     issues.push('Missing <title> tag — critical for Google rankings');
     else if (seo.titleTooShort)     opportunities.push(`Page title too short (${seo.titleText.length} chars) — aim for 30–60`);
     else if (seo.titleTooLong)      opportunities.push(`Page title too long (${seo.titleText.length} chars) — Google truncates after 60`);
 
-    if (!seo.hasMetaDescription)    issues.push('Missing meta description — Google writes its own, often poorly');
+    if (seo.hasMetaDescription === false) issues.push('Missing meta description — Google writes its own, often poorly');
     else if (seo.metaDescTooShort)  opportunities.push('Meta description too short — missing chance to attract clicks');
     else if (seo.metaDescTooLong)   opportunities.push('Meta description too long — will be cut off in search results');
 
-    if (!seo.hasH1)                 issues.push('No H1 heading — search engines can\'t identify the page topic');
+    if (seo.hasH1 === false)        issues.push('No H1 heading — search engines can\'t identify the page topic');
     else if (seo.multipleH1)        opportunities.push('Multiple H1 tags found — should have exactly one');
 
-    if (!seo.hasMobileViewport)     issues.push('Missing mobile viewport tag — site likely broken on phones');
-    if (!seo.hasCanonical)          opportunities.push('No canonical tag — duplicate content may split SEO value');
-    if (!seo.hasOgTags)             opportunities.push('No Open Graph tags — links shared on social show no preview image');
-    if (!seo.hasSchema)             opportunities.push('No structured data (schema.org) — missing rich results in Google');
-    if (!seo.hasAnalytics)          opportunities.push('No analytics detected — owner may not be tracking traffic or conversions');
+    if (seo.hasMobileViewport === false) issues.push('Missing mobile viewport tag — site likely broken on phones');
+    if (seo.hasCanonical === false)      opportunities.push('No canonical tag — duplicate content may split SEO value');
+    if (seo.hasOgTags === false)         opportunities.push('No Open Graph tags — links shared on social show no preview image');
+    if (seo.hasSchema === false)         opportunities.push('No structured data (schema.org) — missing rich results in Google');
+    if (seo.hasAnalytics === false)      opportunities.push('No analytics detected — owner may not be tracking traffic or conversions');
 
     if (seo.imagesWithoutAlt > 0) {
       const label = seo.imagesWithoutAlt === 1
@@ -384,7 +446,33 @@ export async function auditWebsite(url: string): Promise<AuditData> {
     }
   }
 
+  const aiNarrative = await runAuditNarrativeAI({
+    url: normalizedUrl,
+    psiSkipped: !psi,
+    crawlBlocked: seo.crawlBlocked,
+    performance: perfScore,
+    accessibility: accessScore,
+    seo: seoScore,
+    bestPractices: bpScore,
+    rawIssues: issues,
+    rawOpportunities: opportunities,
+    visualIssues: visual.issues,
+    checks: {
+      hasSSL: seo.hasSSL,
+      hasTitle: seo.hasTitle,
+      hasMetaDescription: seo.hasMetaDescription,
+      hasH1: seo.hasH1,
+      hasMobileViewport: seo.hasMobileViewport,
+      hasSchema: seo.hasSchema,
+      hasOgTags: seo.hasOgTags,
+      hasAnalytics: seo.hasAnalytics,
+    },
+  });
+
   return {
+    auditScore: aiNarrative?.score,
+    grade: aiNarrative?.grade,
+    summary: aiNarrative?.summary,
     performance: perfScore,
     accessibility: accessScore,
     seo: seoScore,
@@ -404,8 +492,10 @@ export async function auditWebsite(url: string): Promise<AuditData> {
     hasOgTags: seo.hasOgTags,
     hasAnalytics: seo.hasAnalytics,
     imagesWithoutAlt: seo.imagesWithoutAlt,
-    issues,
-    opportunities,
+    issues: aiNarrative?.issues?.length ? aiNarrative.issues : issues,
+    opportunities: aiNarrative?.opportunities?.length ? aiNarrative.opportunities : opportunities,
+    quickWins: aiNarrative?.quick_wins?.length ? aiNarrative.quick_wins : [],
+    strengths: aiNarrative?.strengths?.length ? aiNarrative.strengths : [],
     visualIssues: visual.issues,
     screenshotDataUrl,
     crawlBlocked: seo.crawlBlocked,
